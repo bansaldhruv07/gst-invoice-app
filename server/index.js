@@ -20,31 +20,35 @@ app.use(
       process.env.CLIENT_URL || "", // production frontend URL (set later)
     ],
     credentials: true,
-  })
+  }),
 );
 
 // Parse incoming JSON request bodies
 app.use(express.json());
 
 // ─── Route imports (we'll create these files in Steps 4–7) ────────────────────
-const authRoutes     = require("./routes/auth");
-const buyerRoutes    = require("./routes/buyers");
-const itemRoutes     = require("./routes/items");
-const invoiceRoutes  = require("./routes/invoices");
+const authRoutes = require("./routes/auth");
+const buyerRoutes = require("./routes/buyers");
+const itemRoutes = require("./routes/items");
+const invoiceRoutes = require("./routes/invoices");
 
 // ─── Mount routes ─────────────────────────────────────────────────────────────
 // All auth routes live at /api/auth  (e.g. POST /api/auth/login)
-app.use("/api/auth",     authRoutes);
+
+app.use("/api/auth", authRoutes);
 
 // // All buyer routes live at /api/buyers
-app.use("/api/buyers",   buyerRoutes);
+app.use("/api/buyers", buyerRoutes);
 
 // // All item routes live at /api/items
-app.use("/api/items",    itemRoutes);
+app.use("/api/items", itemRoutes);
 
 // // All invoice routes live at /api/invoices
 app.use("/api/invoices", invoiceRoutes);
 
+app.get("/", (req, res) => {
+  res.send("GST Invoice API is running 🚀");
+});
 // ─── Health check route ───────────────────────────────────────────────────────
 // Visit http://localhost:5000/api/health to confirm server is running
 app.get("/api/health", (req, res) => {
