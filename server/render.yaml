@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: gst-invoice-api
+    env: node
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: SUPPLIER_NAME
+        sync: false
+      - key: SUPPLIER_GSTIN
+        sync: false
+      - key: SUPPLIER_ADDRESS
+        sync: false
+      - key: SUPPLIER_CITY
+        sync: false
+      - key: SUPPLIER_STATE
+        sync: false
+      - key: SUPPLIER_PINCODE
+        sync: false
+      - key: SUPPLIER_PHONE
+        sync: false
+      - key: SUPPLIER_EMAIL
+        sync: false
+      - key: SUPPLIER_BANK_NAME
+        sync: false
+      - key: SUPPLIER_BANK_ACCOUNT
+        sync: false
+      - key: SUPPLIER_BANK_IFSC
+        sync: false
+      - key: SUPPLIER_BANK_BRANCH
+        sync: false
+      - key: SUPPLIER_STATE_CODE
+        sync: false
+      - key: CLIENT_URL
+        sync: false
