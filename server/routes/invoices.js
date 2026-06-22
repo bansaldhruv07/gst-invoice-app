@@ -3,17 +3,47 @@ const router = express.Router();
 const Invoice = require("../models/Invoice");
 const Buyer = require("../models/Buyer");
 const { protect } = require("../middleware/auth");
+const { canCreateInvoice } = require("../middleware/checkPlan");
 
 // All invoice routes require login
 router.use(protect);
 
 // ─── Helper: convert number to words (for PDF "Amount in Words") ──────────────
 function numberToWords(amount) {
-  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven",
-    "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen",
-    "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty",
-    "Sixty", "Seventy", "Eighty", "Ninety"];
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+  const tens = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
 
   function convertHundreds(n) {
     if (n === 0) return "";
@@ -43,7 +73,7 @@ function numberToWords(amount) {
   }
 
   const rupees = Math.floor(amount);
-  const paise  = Math.round((amount - rupees) * 100);
+  const paise = Math.round((amount - rupees) * 100);
 
   let words = "Rupees " + convertToWords(rupees);
   if (paise > 0) words += " and " + convertToWords(paise) + " Paise";
@@ -77,8 +107,8 @@ async function generateInvoiceNumber(userId) {
 // taxMode: "exclusive" (rate excl GST) or "inclusive" (rate incl GST)
 function calculateItems(items, taxType, taxMode) {
   return items.map((item) => {
-    const qty        = Number(item.quantity) || 0;
-    const rate       = Number(item.rate)     || 0;
+    const qty = Number(item.quantity) || 0;
+    const rate = Number(item.rate) || 0;
     const gstPercent = Number(item.gstPercent) || 0;
 
     let taxableAmount, gstAmount;
@@ -88,31 +118,34 @@ function calculateItems(items, taxType, taxMode) {
       // taxableAmount = (rate × qty) / (1 + gstPercent/100)
       const grossAmount = rate * qty;
       taxableAmount = grossAmount / (1 + gstPercent / 100);
-      gstAmount     = grossAmount - taxableAmount;
+      gstAmount = grossAmount - taxableAmount;
     } else {
       // Exclusive: taxable = rate × qty, then add GST on top
       taxableAmount = rate * qty;
-      gstAmount     = (taxableAmount * gstPercent) / 100;
+      gstAmount = (taxableAmount * gstPercent) / 100;
     }
 
     // Round to 2 decimal places
     taxableAmount = Math.round(taxableAmount * 100) / 100;
-    gstAmount     = Math.round(gstAmount     * 100) / 100;
+    gstAmount = Math.round(gstAmount * 100) / 100;
 
-    let cgstPercent = 0, cgstAmount = 0;
-    let sgstPercent = 0, sgstAmount = 0;
-    let igstPercent = 0, igstAmount = 0;
+    let cgstPercent = 0,
+      cgstAmount = 0;
+    let sgstPercent = 0,
+      sgstAmount = 0;
+    let igstPercent = 0,
+      igstAmount = 0;
 
     if (taxType === "cgst_sgst") {
       // Intra-state: split GST equally into CGST and SGST
       cgstPercent = gstPercent / 2;
       sgstPercent = gstPercent / 2;
-      cgstAmount  = Math.round((gstAmount / 2) * 100) / 100;
-      sgstAmount  = Math.round((gstAmount / 2) * 100) / 100;
+      cgstAmount = Math.round((gstAmount / 2) * 100) / 100;
+      sgstAmount = Math.round((gstAmount / 2) * 100) / 100;
     } else {
       // Inter-state: full GST as IGST
       igstPercent = gstPercent;
-      igstAmount  = gstAmount;
+      igstAmount = gstAmount;
     }
 
     const totalAmount = Math.round((taxableAmount + gstAmount) * 100) / 100;
@@ -120,9 +153,12 @@ function calculateItems(items, taxType, taxMode) {
     return {
       ...item,
       taxableAmount,
-      cgstPercent,  cgstAmount,
-      sgstPercent,  sgstAmount,
-      igstPercent,  igstAmount,
+      cgstPercent,
+      cgstAmount,
+      sgstPercent,
+      sgstAmount,
+      igstPercent,
+      igstAmount,
       totalAmount,
     };
   });
@@ -130,7 +166,7 @@ function calculateItems(items, taxType, taxMode) {
 
 // ─── POST /api/invoices ───────────────────────────────────────────────────────
 // Create a new invoice
-router.post("/", async (req, res) => {
+router.post("/", canCreateInvoice, async (req, res) => {
   try {
     const {
       buyerId,
@@ -164,30 +200,31 @@ router.post("/", async (req, res) => {
 
     // Compare supplier state code (from .env) with buyer state code
     const supplierStateCode = process.env.SUPPLIER_STATE_CODE || "07";
-    const buyerStateCode    = buyer.stateCode || "";
-    const taxType = buyerStateCode && buyerStateCode !== supplierStateCode
-      ? "igst"       // different state → IGST
-      : "cgst_sgst"; // same state or unknown → CGST + SGST
+    const buyerStateCode = buyer.stateCode || "";
+    const taxType =
+      buyerStateCode && buyerStateCode !== supplierStateCode
+        ? "igst" // different state → IGST
+        : "cgst_sgst"; // same state or unknown → CGST + SGST
 
     // Calculate GST for each line item
     const calculatedItems = calculateItems(
       items,
       taxType,
-      taxMode || "exclusive"
+      taxMode || "exclusive",
     );
 
     // Sum up all item totals
-    const subTotal   = calculatedItems.reduce((s, i) => s + i.taxableAmount, 0);
-    const totalCgst  = calculatedItems.reduce((s, i) => s + i.cgstAmount,    0);
-    const totalSgst  = calculatedItems.reduce((s, i) => s + i.sgstAmount,    0);
-    const totalIgst  = calculatedItems.reduce((s, i) => s + i.igstAmount,    0);
-    const totalTax   = totalCgst + totalSgst + totalIgst;
+    const subTotal = calculatedItems.reduce((s, i) => s + i.taxableAmount, 0);
+    const totalCgst = calculatedItems.reduce((s, i) => s + i.cgstAmount, 0);
+    const totalSgst = calculatedItems.reduce((s, i) => s + i.sgstAmount, 0);
+    const totalIgst = calculatedItems.reduce((s, i) => s + i.igstAmount, 0);
+    const totalTax = totalCgst + totalSgst + totalIgst;
 
     // Calculate discount
     let discountAmount = 0;
     const dValue = Number(discountValue) || 0;
     if (discountType === "percent") {
-      discountAmount = Math.round((subTotal * dValue) / 100 * 100) / 100;
+      discountAmount = Math.round(((subTotal * dValue) / 100) * 100) / 100;
     } else {
       discountAmount = dValue;
     }
@@ -197,7 +234,7 @@ router.post("/", async (req, res) => {
 
     // Round off to nearest rupee
     const grandTotal = Math.round(totalAmount);
-    const roundOff   = Math.round((grandTotal - totalAmount) * 100) / 100;
+    const roundOff = Math.round((grandTotal - totalAmount) * 100) / 100;
 
     // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(req.user._id);
@@ -206,37 +243,40 @@ router.post("/", async (req, res) => {
     const amountInWords = numberToWords(grandTotal);
 
     const invoice = await Invoice.create({
-      user:           req.user._id,
+      user: req.user._id,
       invoiceNumber,
-      invoiceDate:    invoiceDate || new Date(),
-      dueDate:        dueDate     || null,
-      buyer:          buyerId,
-      invoiceType:    invoiceType || "tax_invoice",
-      taxMode:        taxMode     || "exclusive",
+      invoiceDate: invoiceDate || new Date(),
+      dueDate: dueDate || null,
+      buyer: buyerId,
+      invoiceType: invoiceType || "tax_invoice",
+      taxMode: taxMode || "exclusive",
       taxType,
-      items:          calculatedItems,
-      discountType:   discountType  || "amount",
-      discountValue:  dValue,
+      items: calculatedItems,
+      discountType: discountType || "amount",
+      discountValue: dValue,
       discountAmount,
-      subTotal:       Math.round(subTotal  * 100) / 100,
-      totalCgst:      Math.round(totalCgst * 100) / 100,
-      totalSgst:      Math.round(totalSgst * 100) / 100,
-      totalIgst:      Math.round(totalIgst * 100) / 100,
-      totalTax:       Math.round(totalTax  * 100) / 100,
-      totalAmount:    Math.round(totalAmount * 100) / 100,
+      subTotal: Math.round(subTotal * 100) / 100,
+      totalCgst: Math.round(totalCgst * 100) / 100,
+      totalSgst: Math.round(totalSgst * 100) / 100,
+      totalIgst: Math.round(totalIgst * 100) / 100,
+      totalTax: Math.round(totalTax * 100) / 100,
+      totalAmount: Math.round(totalAmount * 100) / 100,
       roundOff,
       grandTotal,
       amountInWords,
-      status:         "unpaid",
-      paidAmount:     0,
-      balanceAmount:  grandTotal,
-      notes:          notes || "",
-      terms:          terms || "Payment due within 30 days.",
+      status: "unpaid",
+      paidAmount: 0,
+      balanceAmount: grandTotal,
+      notes: notes || "",
+      terms: terms || "Payment due within 30 days.",
     });
 
     // Populate buyer details before returning
     await invoice.populate("buyer");
-
+    if (req.sub) {
+      req.sub.usage.invoicesThisMonth += 1;
+      await req.sub.save();
+    }
     res.status(201).json({
       success: true,
       message: "Invoice created successfully",
@@ -266,34 +306,46 @@ router.get("/stats", async (req, res) => {
       {
         $group: {
           _id: null,
-          totalInvoices:  { $sum: 1 },
-          totalAmount:    { $sum: "$grandTotal" },
-          totalPaid:      { $sum: "$paidAmount" },
-          totalBalance:   { $sum: "$balanceAmount" },
+          totalInvoices: { $sum: 1 },
+          totalAmount: { $sum: "$grandTotal" },
+          totalPaid: { $sum: "$paidAmount" },
+          totalBalance: { $sum: "$balanceAmount" },
         },
       },
     ]);
 
     // Count by status
-    const unpaidCount    = await Invoice.countDocuments({ user: userId, status: "unpaid" });
-    const partialCount   = await Invoice.countDocuments({ user: userId, status: "partial" });
-    const paidCount      = await Invoice.countDocuments({ user: userId, status: "paid" });
-    const cancelledCount = await Invoice.countDocuments({ user: userId, status: "cancelled" });
+    const unpaidCount = await Invoice.countDocuments({
+      user: userId,
+      status: "unpaid",
+    });
+    const partialCount = await Invoice.countDocuments({
+      user: userId,
+      status: "partial",
+    });
+    const paidCount = await Invoice.countDocuments({
+      user: userId,
+      status: "paid",
+    });
+    const cancelledCount = await Invoice.countDocuments({
+      user: userId,
+      status: "cancelled",
+    });
 
     const data = stats[0] || {
       totalInvoices: 0,
-      totalAmount:   0,
-      totalPaid:     0,
-      totalBalance:  0,
+      totalAmount: 0,
+      totalPaid: 0,
+      totalBalance: 0,
     };
 
     res.json({
       success: true,
       stats: {
-        totalInvoices:  data.totalInvoices,
-        totalAmount:    Math.round(data.totalAmount  * 100) / 100,
-        totalPaid:      Math.round(data.totalPaid    * 100) / 100,
-        totalBalance:   Math.round(data.totalBalance * 100) / 100,
+        totalInvoices: data.totalInvoices,
+        totalAmount: Math.round(data.totalAmount * 100) / 100,
+        totalPaid: Math.round(data.totalPaid * 100) / 100,
+        totalBalance: Math.round(data.totalBalance * 100) / 100,
         unpaidCount,
         partialCount,
         paidCount,
@@ -310,7 +362,14 @@ router.get("/stats", async (req, res) => {
 // List all invoices with filters
 router.get("/", async (req, res) => {
   try {
-    const { status, startDate, endDate, search, page = 1, limit = 20 } = req.query;
+    const {
+      status,
+      startDate,
+      endDate,
+      search,
+      page = 1,
+      limit = 20,
+    } = req.query;
 
     const filter = { user: req.user._id };
 
@@ -323,7 +382,7 @@ router.get("/", async (req, res) => {
     if (startDate || endDate) {
       filter.invoiceDate = {};
       if (startDate) filter.invoiceDate.$gte = new Date(startDate);
-      if (endDate)   filter.invoiceDate.$lte = new Date(endDate);
+      if (endDate) filter.invoiceDate.$lte = new Date(endDate);
     }
 
     // If search provided, find buyers whose names match, then filter invoices
@@ -341,7 +400,7 @@ router.get("/", async (req, res) => {
       ];
     }
 
-    const skip  = (Number(page) - 1) * Number(limit);
+    const skip = (Number(page) - 1) * Number(limit);
     const total = await Invoice.countDocuments(filter);
 
     const invoices = await Invoice.find(filter)
@@ -353,8 +412,8 @@ router.get("/", async (req, res) => {
     res.json({
       success: true,
       total,
-      page:        Number(page),
-      totalPages:  Math.ceil(total / Number(limit)),
+      page: Number(page),
+      totalPages: Math.ceil(total / Number(limit)),
       invoices,
     });
   } catch (err) {
@@ -368,7 +427,7 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const invoice = await Invoice.findOne({
-      _id:  req.params.id,
+      _id: req.params.id,
       user: req.user._id,
     }).populate("buyer");
 
@@ -400,7 +459,7 @@ router.put("/:id/status", async (req, res) => {
     }
 
     const invoice = await Invoice.findOne({
-      _id:  req.params.id,
+      _id: req.params.id,
       user: req.user._id,
     });
 
@@ -439,7 +498,7 @@ router.post("/:id/payment", async (req, res) => {
     }
 
     const invoice = await Invoice.findOne({
-      _id:  req.params.id,
+      _id: req.params.id,
       user: req.user._id,
     });
 
@@ -460,14 +519,20 @@ router.post("/:id/payment", async (req, res) => {
     // Add payment to history
     invoice.paymentHistory.push({
       amount: Number(amount),
-      date:   date ? new Date(date) : new Date(),
-      mode:   mode || "upi",
-      note:   note || "",
+      date: date ? new Date(date) : new Date(),
+      mode: mode || "upi",
+      note: note || "",
     });
 
     // Recalculate paid and balance amounts
-    invoice.paidAmount    = invoice.paymentHistory.reduce((s, p) => s + p.amount, 0);
-    invoice.balanceAmount = Math.max(0, invoice.grandTotal - invoice.paidAmount);
+    invoice.paidAmount = invoice.paymentHistory.reduce(
+      (s, p) => s + p.amount,
+      0,
+    );
+    invoice.balanceAmount = Math.max(
+      0,
+      invoice.grandTotal - invoice.paidAmount,
+    );
 
     // Auto-update status based on payment
     if (invoice.paidAmount >= invoice.grandTotal) {
@@ -480,10 +545,10 @@ router.post("/:id/payment", async (req, res) => {
 
     res.json({
       success: true,
-      message:      "Payment recorded successfully",
-      paidAmount:   invoice.paidAmount,
+      message: "Payment recorded successfully",
+      paidAmount: invoice.paidAmount,
       balanceAmount: invoice.balanceAmount,
-      status:       invoice.status,
+      status: invoice.status,
       invoice,
     });
   } catch (err) {

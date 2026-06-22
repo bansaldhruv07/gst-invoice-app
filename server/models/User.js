@@ -20,10 +20,19 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
     },
+    subscription: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subscription",
+      default: null,
+    },
+
+    // Custom logo URL (Pro/Starter feature)
+    logoUrl: { type: String, default: "" },
   },
+
   {
     timestamps: true, // adds createdAt and updatedAt automatically
-  }
+  },
 );
 
 // ─── Pre-save hook: hash password before saving to DB ─────────────────────────

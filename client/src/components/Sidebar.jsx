@@ -12,41 +12,41 @@ import {
   ChevronLeft,
   ChevronRight,
   Receipt,
+  Crown,
 } from "lucide-react";
-
 // ─── Navigation items ─────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   {
     label: "Dashboard",
-    icon:  LayoutDashboard,
-    to:    "/dashboard",
+    icon: LayoutDashboard,
+    to: "/dashboard",
   },
   {
     label: "Invoices",
-    icon:  Receipt,
-    to:    "/dashboard", // goes to dashboard which shows invoice list
+    icon: Receipt,
+    to: "/dashboard", // goes to dashboard which shows invoice list
     exact: true,
   },
   {
     label: "Create Invoice",
-    icon:  PlusCircle,
-    to:    "/invoices/create",
+    icon: PlusCircle,
+    to: "/invoices/create",
   },
   {
     label: "Buyers",
-    icon:  Users,
-    to:    "/buyers",
+    icon: Users,
+    to: "/buyers",
   },
   {
     label: "Items / Products",
-    icon:  Package,
-    to:    "/items",
+    icon: Package,
+    to: "/items",
   },
 ];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
-  const navigate         = useNavigate();
+  const navigate = useNavigate();
 
   // Collapsible sidebar state — collapsed shows only icons
   const [collapsed, setCollapsed] = useState(false);
@@ -80,14 +80,17 @@ export default function Sidebar() {
         onClick={() => setCollapsed(!collapsed)}
         className="absolute -right-3 top-20 z-10 w-6 h-6 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center shadow-lg transition-colors duration-200"
       >
-        {collapsed
-          ? <ChevronRight className="w-3 h-3 text-white" />
-          : <ChevronLeft  className="w-3 h-3 text-white" />
-        }
+        {collapsed ? (
+          <ChevronRight className="w-3 h-3 text-white" />
+        ) : (
+          <ChevronLeft className="w-3 h-3 text-white" />
+        )}
       </button>
 
       {/* ── Brand / Logo ────────────────────────────────────────────────────── */}
-      <div className={`flex items-center gap-3 px-4 py-5 border-b border-slate-700 ${collapsed ? "justify-center px-2" : ""}`}>
+      <div
+        className={`flex items-center gap-3 px-4 py-5 border-b border-slate-700 ${collapsed ? "justify-center px-2" : ""}`}
+      >
         <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
           <FileText className="w-5 h-5 text-white" />
         </div>
@@ -107,13 +110,14 @@ export default function Sidebar() {
       {!collapsed && user && (
         <div className="mx-3 mt-3 px-3 py-2 bg-slate-800 rounded-lg border border-slate-700">
           <p className="text-xs text-slate-400 leading-tight">Logged in as</p>
-          <p className="text-sm font-semibold text-white truncate">{user.name}</p>
+          <p className="text-sm font-semibold text-white truncate">
+            {user.name}
+          </p>
         </div>
       )}
 
       {/* ── Navigation links ─────────────────────────────────────────────────── */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-
         {/* Section label */}
         {!collapsed && (
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2">
@@ -129,9 +133,10 @@ export default function Sidebar() {
               flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
               transition-all duration-150 group
               ${collapsed ? "justify-center" : ""}
-              ${isActive
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              ${
+                isActive
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }
             `}
             title={collapsed ? label : undefined}
@@ -157,9 +162,10 @@ export default function Sidebar() {
             flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
             transition-all duration-150
             ${collapsed ? "justify-center" : ""}
-            ${isActive
-              ? "bg-indigo-600 text-white shadow-sm"
-              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            ${
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
             }
           `}
           title={collapsed ? "Buyers" : undefined}
@@ -174,9 +180,10 @@ export default function Sidebar() {
             flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
             transition-all duration-150
             ${collapsed ? "justify-center" : ""}
-            ${isActive
-              ? "bg-indigo-600 text-white shadow-sm"
-              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            ${
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
             }
           `}
           title={collapsed ? "Items" : undefined}
@@ -184,12 +191,17 @@ export default function Sidebar() {
           <Package className="w-4 h-4 flex-shrink-0" />
           {!collapsed && <span>Items / Products</span>}
         </NavLink>
+        <NavLink to="/pricing" className="...">
+          <Crown className="w-4 h-4" />
+          {!collapsed && <span>Upgrade Plan</span>}
+        </NavLink>
       </nav>
 
       {/* ── User profile + Logout ────────────────────────────────────────────── */}
       <div className="border-t border-slate-700 p-3">
-        <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-
+        <div
+          className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}
+        >
           {/* Avatar circle with initials */}
           <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
             <span className="text-xs font-bold text-white">
@@ -203,9 +215,7 @@ export default function Sidebar() {
               <p className="text-sm font-medium text-white truncate">
                 {user?.name}
               </p>
-              <p className="text-xs text-slate-400 truncate">
-                {user?.email}
-              </p>
+              <p className="text-xs text-slate-400 truncate">{user?.email}</p>
             </div>
           )}
 

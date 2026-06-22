@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Item = require("../models/Item");
+const { canAddItem } = require("../middleware/checkPlan");
 const { protect } = require("../middleware/auth");
 
 // All item routes require login
@@ -64,7 +65,7 @@ router.get("/:id", async (req, res) => {
 
 // ─── POST /api/items ──────────────────────────────────────────────────────────
 // Creates a new item/product
-router.post("/", async (req, res) => {
+router.post("/", canAddItem, async (req, res) => {
   try {
     const { name, hsn, unit, price, gstPercent, description } = req.body;
 
@@ -79,10 +80,10 @@ router.post("/", async (req, res) => {
     const item = await Item.create({
       user: req.user._id,
       name,
-      hsn:         hsn         || "",
-      unit:        unit        || "pcs",
-      price:       Number(price),
-      gstPercent:  gstPercent !== undefined ? Number(gstPercent) : 18,
+      hsn: hsn || "",
+      unit: unit || "pcs",
+      price: Number(price),
+      gstPercent: gstPercent !== undefined ? Number(gstPercent) : 18,
       description: description || "",
     });
 
@@ -124,11 +125,11 @@ router.put("/:id", async (req, res) => {
     }
 
     // Only update fields that were actually sent in the request
-    if (name        !== undefined) item.name        = name;
-    if (hsn         !== undefined) item.hsn         = hsn;
-    if (unit        !== undefined) item.unit        = unit;
-    if (price       !== undefined) item.price       = Number(price);
-    if (gstPercent  !== undefined) item.gstPercent  = Number(gstPercent);
+    if (name !== undefined) item.name = name;
+    if (hsn !== undefined) item.hsn = hsn;
+    if (unit !== undefined) item.unit = unit;
+    if (price !== undefined) item.price = Number(price);
+    if (gstPercent !== undefined) item.gstPercent = Number(gstPercent);
     if (description !== undefined) item.description = description;
 
     await item.save();

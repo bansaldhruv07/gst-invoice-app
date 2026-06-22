@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Buyer = require("../models/Buyer");
 const { protect } = require("../middleware/auth");
+const { canAddBuyer } = require("../middleware/checkPlan");
 
 // All buyer routes require login — apply protect to every route in this file
 router.use(protect);
@@ -59,18 +60,10 @@ router.get("/:id", async (req, res) => {
 
 // ─── POST /api/buyers ─────────────────────────────────────────────────────────
 // Creates a new buyer
-router.post("/", async (req, res) => {
+router.post("/", canAddBuyer, async (req, res) => {
   try {
-    const {
-      name,
-      gstin,
-      address,
-      city,
-      state,
-      pincode,
-      mobile,
-      email,
-    } = req.body;
+    const { name, gstin, address, city, state, pincode, mobile, email } =
+      req.body;
 
     if (!name) {
       return res.status(400).json({
@@ -114,16 +107,8 @@ router.post("/", async (req, res) => {
 // Updates an existing buyer
 router.put("/:id", async (req, res) => {
   try {
-    const {
-      name,
-      gstin,
-      address,
-      city,
-      state,
-      pincode,
-      mobile,
-      email,
-    } = req.body;
+    const { name, gstin, address, city, state, pincode, mobile, email } =
+      req.body;
 
     // Find buyer and make sure it belongs to this user
     const buyer = await Buyer.findOne({
@@ -139,14 +124,14 @@ router.put("/:id", async (req, res) => {
     }
 
     // Update only the fields that were sent
-    if (name !== undefined)    buyer.name    = name;
-    if (gstin !== undefined)   buyer.gstin   = gstin;
+    if (name !== undefined) buyer.name = name;
+    if (gstin !== undefined) buyer.gstin = gstin;
     if (address !== undefined) buyer.address = address;
-    if (city !== undefined)    buyer.city    = city;
-    if (state !== undefined)   buyer.state   = state;
+    if (city !== undefined) buyer.city = city;
+    if (state !== undefined) buyer.state = state;
     if (pincode !== undefined) buyer.pincode = pincode;
-    if (mobile !== undefined)  buyer.mobile  = mobile;
-    if (email !== undefined)   buyer.email   = email;
+    if (mobile !== undefined) buyer.mobile = mobile;
+    if (email !== undefined) buyer.email = email;
 
     // pre-save hook will re-extract stateCode from new GSTIN automatically
     await buyer.save();

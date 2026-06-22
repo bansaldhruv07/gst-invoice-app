@@ -3,6 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const subscriptionRoutes = require("./routes/subscriptions");
 
 // Load environment variables from .env file
 dotenv.config();
@@ -69,21 +70,91 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ─── MongoDB connection + Server start ────────────────────────────────────────
+app.use("/api/subscriptions", subscriptionRoutes);
+
+// ─── Seed default plans on startup ───────────────────────────────────────────
+const Plan = require("./models/Plan");
+
+async function seedPlans() {
+  const count = await Plan.countDocuments();
+  if (count > 0) return; // already seeded
+
+  await Plan.insertMany([
+    {
+      name: "free",
+      displayName: "Free",
+      price: 0,
+      limits: { invoicesPerMonth: 10, buyers: 5, items: 10 },
+      features: {
+        paymentTracking: false,
+        gstReports: false,
+        multiUser: false,
+        customLogo: false,
+        emailInvoice: false,
+        prioritySupport: false,
+      },
+    },
+    {
+      name: "starter",
+      displayName: "Starter",
+      price: 299,
+      limits: { invoicesPerMonth: 100, buyers: 50, items: 100 },
+      features: {
+        paymentTracking: true,
+        gstReports: false,
+        multiUser: false,
+        customLogo: true,
+        emailInvoice: false,
+        prioritySupport: false,
+      },
+    },
+    {
+      name: "growth",
+      displayName: "Growth",
+      price: 799,
+      limits: { invoicesPerMonth: -1, buyers: -1, items: -1 },
+      features: {
+        paymentTracking: true,
+        gstReports: true,
+        multiUser: false,
+        customLogo: true,
+        emailInvoice: true,
+        prioritySupport: false,
+      },
+    },
+    {
+      name: "pro",
+      displayName: "Pro",
+      price: 1999,
+      limits: { invoicesPerMonth: -1, buyers: -1, items: -1 },
+      features: {
+        paymentTracking: true,
+        gstReports: true,
+        multiUser: true,
+        customLogo: true,
+        emailInvoice: true,
+        prioritySupport: true,
+      },
+    },
+  ]);
+  console.log("✅ Plans seeded");
+}
+
 const PORT = process.env.PORT || 5000;
 
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => {
+  .then(async () => {
     console.log("✅ MongoDB connected successfully");
 
-    // Only start listening after DB is connected
+    await seedPlans();
+
     app.listen(PORT, () => {
       console.log(`✅ Server running on http://localhost:${PORT}`);
-      console.log(`   Health check: http://localhost:${PORT}/api/health`);
+      console.log(`Health check: http://localhost:${PORT}/api/health`);
     });
   })
   .catch((err) => {
-    console.error("❌ MongoDB connection failed:", err.message);
-    process.exit(1); // Exit process if DB fails — no point running without DB
+    console.error(err);
+    process.exit(1);
   });

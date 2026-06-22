@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-
+import Pricing from "./pages/Pricing";
 // Pages
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -10,6 +10,7 @@ import Buyers from "./pages/Buyers";
 import Items from "./pages/Items";
 import CreateInvoice from "./pages/CreateInvoice";
 import InvoiceDetail from "./pages/InvoiceDetail";
+import { SubscriptionProvider } from "./context/SubscriptionContext";
 
 // Layout
 import Layout from "./components/Layout";
@@ -49,65 +50,67 @@ function PublicRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        {/* Toast notifications — top right corner */}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: "#1e293b",
-              color: "#f8fafc",
-              borderRadius: "8px",
-              fontSize: "14px",
-            },
-            success: { iconTheme: { primary: "#22c55e", secondary: "#fff" } },
-            error: { iconTheme: { primary: "#ef4444", secondary: "#fff" } },
-          }}
-        />
-
-        <Routes>
-          {/* Public routes — redirect to dashboard if logged in */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            }
+      <SubscriptionProvider>
+        <BrowserRouter>
+          {/* Toast notifications — top right corner */}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: "#1e293b",
+                color: "#f8fafc",
+                borderRadius: "8px",
+                fontSize: "14px",
+              },
+              success: { iconTheme: { primary: "#22c55e", secondary: "#fff" } },
+              error: { iconTheme: { primary: "#ef4444", secondary: "#fff" } },
+            }}
           />
 
-          {/* Protected routes — all wrapped in Layout (sidebar + navbar) */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            {/* Default redirect */}
-            <Route index element={<Navigate to="/dashboard" replace />} />
+          <Routes>
+            {/* Public routes — redirect to dashboard if logged in */}
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicRoute>
+                  <Register />
+                </PublicRoute>
+              }
+            />
 
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="buyers" element={<Buyers />} />
-            <Route path="items" element={<Items />} />
-            <Route path="invoices/create" element={<CreateInvoice />} />
-            <Route path="invoices/:id" element={<InvoiceDetail />} />
-          </Route>
+            {/* Protected routes — all wrapped in Layout (sidebar + navbar) */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              {/* Default redirect */}
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="buyers" element={<Buyers />} />
+              <Route path="items" element={<Items />} />
+              <Route path="invoices/create" element={<CreateInvoice />} />
+              <Route path="invoices/:id" element={<InvoiceDetail />} />
+            </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }
