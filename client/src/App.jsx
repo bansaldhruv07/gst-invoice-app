@@ -14,6 +14,7 @@ import { SubscriptionProvider } from "./context/SubscriptionContext";
 import Purchases from "./pages/Purchases";
 import CreatePurchase from "./pages/CreatePurchase";
 import Sellers from "./pages/Sellers";
+import Settings from "./pages/Settings";
 
 // Layout
 import Layout from "./components/Layout";
@@ -110,6 +111,7 @@ export default function App() {
               <Route path="purchases" element={<Purchases />} />
               <Route path="purchases/create" element={<CreatePurchase />} />
               <Route path="sellers" element={<Sellers />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
 
             {/* Catch-all */}

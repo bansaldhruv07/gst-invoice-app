@@ -28,6 +28,21 @@ const userSchema = new mongoose.Schema(
 
     // Custom logo URL (Pro/Starter feature)
     logoUrl: { type: String, default: "" },
+
+    // Supplier details for business profile
+    supplierName: { type: String, default: "" },
+    supplierGstin: { type: String, default: "" },
+    supplierAddress: { type: String, default: "" },
+    supplierCity: { type: String, default: "" },
+    supplierState: { type: String, default: "" },
+    supplierPincode: { type: String, default: "" },
+    supplierPhone: { type: String, default: "" },
+    supplierEmail: { type: String, default: "" },
+    supplierBankName: { type: String, default: "" },
+    supplierBankAccount: { type: String, default: "" },
+    supplierBankIfsc: { type: String, default: "" },
+    supplierBankBranch: { type: String, default: "" },
+    supplierStateCode: { type: String, default: "07" },
   },
 
   {

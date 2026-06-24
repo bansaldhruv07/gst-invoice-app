@@ -317,6 +317,47 @@ export default function InvoiceDetail() {
       const W = 210; // page width
       const m = 8; // margin
 
+      const sName = inv.supplierName || S.name || "AGGARWAL TRADERS";
+      const sGstin = inv.supplierGstin || S.gstin || "";
+      const sAddress = inv.supplierAddress || S.address || "";
+      const sCity = inv.supplierCity || S.city || "";
+      const sState = inv.supplierState || S.state || "";
+      const sPincode = inv.supplierPincode || S.pincode || "";
+      const sPhone = inv.supplierPhone || S.phone || "";
+      const sEmail = inv.supplierEmail || S.email || "";
+      const sStateCode = inv.supplierStateCode || S.stateCode || "07";
+
+      // Helper to load image
+      const loadImage = (url) => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = url;
+        });
+      };
+
+      let logoImg = null;
+      if (S.logoUrl) {
+        logoImg = await loadImage(S.logoUrl);
+      }
+
+      let sigImg = null;
+      if (inv.signatureUrl) {
+        sigImg = await loadImage(inv.signatureUrl);
+      }
+
+      const copies = (inv.printCopies && inv.printCopies.length > 0)
+        ? inv.printCopies
+        : ["recipient"];
+
+      for (let pageIndex = 0; pageIndex < copies.length; pageIndex++) {
+        const copyType = copies[pageIndex];
+        if (pageIndex > 0) {
+          doc.addPage();
+        }
+
       // ── Colors ──────────────────────────────────────────────────────────────
       const BLACK = [0, 0, 0];
       const WHITE = [255, 255, 255];
@@ -343,12 +384,27 @@ export default function InvoiceDetail() {
       doc.rect(m, m, W - m * 2, 277);
 
       // ── Logo placeholder (top left) ──────────────────────────────────────────
-      doc.setFillColor(...LGRAY);
-      doc.rect(m + 1, y + 1, 28, 28, "F");
-      doc.setTextColor(...DGRAY);
-      doc.setFontSize(6);
-      doc.setFont("helvetica", "normal");
-      doc.text("LOGO", m + 1 + 14, y + 1 + 15, { align: "center" });
+      if (logoImg) {
+        try {
+          doc.addImage(logoImg, "PNG", m + 1, y + 1, 28, 28);
+        } catch (err) {
+          console.error("Error drawing logo in PDF:", err);
+          // Fallback if draw fails
+          doc.setFillColor(...LGRAY);
+          doc.rect(m + 1, y + 1, 28, 28, "F");
+          doc.setTextColor(...DGRAY);
+          doc.setFontSize(6);
+          doc.setFont("helvetica", "normal");
+          doc.text("LOGO", m + 1 + 14, y + 1 + 15, { align: "center" });
+        }
+      } else {
+        doc.setFillColor(...LGRAY);
+        doc.rect(m + 1, y + 1, 28, 28, "F");
+        doc.setTextColor(...DGRAY);
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.text("LOGO", m + 1 + 14, y + 1 + 15, { align: "center" });
+      }
 
       // ── e-Invoice label (top right) ──────────────────────────────────────────
       doc.setTextColor(...BLACK);
@@ -368,22 +424,22 @@ export default function InvoiceDetail() {
       doc.setTextColor(...BLACK);
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.text(S.name || "AGGARWAL TRADERS", cx, y + 8, { align: "center" });
+      doc.text(sName, cx, y + 8, { align: "center" });
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      const addr = [S.address, S.city, S.state, S.pincode]
+      const addr = [sAddress, sCity, sState, sPincode]
         .filter(Boolean)
         .join(", ");
       doc.text(addr, cx, y + 14, { align: "center" });
 
-      if (S.phone) {
-        doc.text(S.phone, cx, y + 19, { align: "center" });
+      if (sPhone) {
+        doc.text(sPhone, cx, y + 19, { align: "center" });
       }
 
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
-      doc.text(`GSTIN : ${S.gstin || ""}`, cx, y + 25, { align: "center" });
+      doc.text(`GSTIN : ${sGstin || ""}`, cx, y + 25, { align: "center" });
 
       y += 31;
 
@@ -413,6 +469,16 @@ export default function InvoiceDetail() {
         doc.setDrawColor(...DGRAY);
         doc.setLineWidth(0.2);
         doc.rect(bx, by + 0.3, 2.5, 2.5);
+
+        // Tick checkbox if it matches current page copy type
+        const isCurrent = (copyType === "recipient" && i === 0) ||
+                          (copyType === "transporter" && i === 1) ||
+                          (copyType === "supplier" && i === 2);
+        if (isCurrent) {
+          doc.setFillColor(...DGRAY);
+          doc.rect(bx + 0.5, by + 0.8, 1.5, 1.5, "F");
+        }
+
         doc.setFontSize(6);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(...DGRAY);
@@ -427,7 +493,42 @@ export default function InvoiceDetail() {
       doc.setDrawColor(...MGRAY);
       doc.setLineWidth(0.2);
 
-      const metaH = 28;
+      const capMode = inv.transportMode && inv.transportMode !== "none"
+        ? inv.transportMode.charAt(0).toUpperCase() + inv.transportMode.slice(1).toLowerCase()
+        : "None";
+
+      const metaLeft = [
+        ["Reverse Charge", "No"],
+        ["Invoice No.", inv.invoiceNumber],
+        ["Invoice Date", fmtDate(inv.invoiceDate)],
+        ["State", sState || "Delhi"],
+      ];
+      if (inv.transporterName) {
+        metaLeft.push(["Transporter", `${inv.transporterName}${inv.transporterId ? ` (${inv.transporterId})` : ""}`]);
+      }
+      if (inv.optionalField1 && inv.optionalValue1) {
+        metaLeft.push([inv.optionalField1, inv.optionalValue1]);
+      }
+      if (inv.optionalField2 && inv.optionalValue2) {
+        metaLeft.push([inv.optionalField2, inv.optionalValue2]);
+      }
+
+      const metaRight = [
+        ["Transport Mode", capMode],
+      ];
+      if (inv.vehicleNumber) {
+        metaRight.push(["Vehicle No.", inv.vehicleNumber]);
+      }
+      if (inv.lrNumber) {
+        metaRight.push(["LR No. & Date", `${inv.lrNumber}${inv.lrDate ? ` / ${fmtDate(inv.lrDate)}` : ""}`]);
+      }
+      metaRight.push(["Date of Supply", inv.dateOfSupply ? fmtDate(inv.dateOfSupply) : fmtDate(inv.invoiceDate)]);
+      if (inv.placeOfSupply) {
+        metaRight.push(["Place of Supply", inv.placeOfSupply]);
+      }
+
+      const maxRows = Math.max(metaLeft.length, metaRight.length);
+      const metaH = Math.max(28, maxRows * 4.2 + 4);
       const halfW = (W - m * 2) / 2;
       const leftX = m;
       const rightX = m + halfW;
@@ -437,30 +538,16 @@ export default function InvoiceDetail() {
       // right box
       doc.rect(rightX, y, halfW, metaH);
 
-      const metaLeft = [
-        ["Reverse Charge", "No"],
-        ["Invoice No.", inv.invoiceNumber],
-        ["Invoice Date", fmtDate(inv.invoiceDate)],
-        ["E-Way Bill No", ""],
-        ["State", S.state || "Delhi"],
-      ];
-
-      const metaRight = [
-        ["Challan No.", ""],
-        ["Transportation Mode", "Road"],
-        ["Vehicle No.", ""],
-        ["Date of Supply", fmtDate(inv.invoiceDate)],
-        ["Place of Supply", ""],
-      ];
-
       doc.setFontSize(7.5);
       metaLeft.forEach(([key, val], i) => {
-        const ly = y + 4 + i * 4.8;
+        const ly = y + 4.5 + i * 4.2;
         doc.setFont("helvetica", "normal");
         doc.setTextColor(...DGRAY);
-        doc.text(key, leftX + 2, ly);
+        const wrappedKey = doc.splitTextToSize(key, 28);
+        doc.text(wrappedKey[0], leftX + 2, ly);
         doc.setTextColor(...BLACK);
-        doc.text(`:  ${val}`, leftX + 32, ly);
+        const wrappedVal = doc.splitTextToSize(String(val), halfW - 35);
+        doc.text(wrappedVal[0], leftX + 32, ly);
       });
 
       // State Code box inside left meta
@@ -472,15 +559,17 @@ export default function InvoiceDetail() {
       doc.text("Code", leftX + halfW - 17, y + metaH - 2.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...BLACK);
-      doc.text(S.stateCode || "07", leftX + halfW - 7, y + metaH - 3);
+      doc.text(sStateCode || "07", leftX + halfW - 7, y + metaH - 3);
 
       metaRight.forEach(([key, val], i) => {
-        const ly = y + 4 + i * 4.8;
+        const ly = y + 4.5 + i * 4.2;
         doc.setFont("helvetica", "normal");
         doc.setTextColor(...DGRAY);
-        doc.text(key, rightX + 2, ly);
+        const wrappedKey = doc.splitTextToSize(key, 32);
+        doc.text(wrappedKey[0], rightX + 2, ly);
         doc.setTextColor(...BLACK);
-        doc.text(`:  ${val}`, rightX + 36, ly);
+        const wrappedVal = doc.splitTextToSize(String(val), halfW - 38);
+        doc.text(wrappedVal[0], rightX + 36, ly);
       });
 
       y += metaH;
@@ -565,7 +654,7 @@ export default function InvoiceDetail() {
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...BLACK);
         doc.text(
-          B?.stateCode || S.stateCode || "07",
+          B?.stateCode || sStateCode || "07",
           bx + 10,
           y + 5 + buyerBoxH - 3,
         );
@@ -634,6 +723,17 @@ export default function InvoiceDetail() {
         }
       });
 
+      // Add empty space of about two items if items are less than three
+      if (inv.items.length < 3) {
+        for (let k = 0; k < 2; k++) {
+          if (isCgstSgst) {
+            tableBody.push(["", "", "", "", "", "", "", "", "", "", "", ""]);
+          } else {
+            tableBody.push(["", "", "", "", "", "", "", "", "", ""]);
+          }
+        }
+      }
+
       // Total row
       const totalQty = inv.items.reduce((s, i) => s + (i.quantity || 0), 0);
       if (isCgstSgst) {
@@ -647,21 +747,21 @@ export default function InvoiceDetail() {
           "",
           "",
           {
-            content: `₹${fmtN(inv.subTotal)}`,
+            content: `${fmtN(inv.subTotal)}`,
             styles: { fontStyle: "bold", halign: "right" },
           },
           "",
           {
-            content: `₹${fmtN(inv.totalCgst)}`,
+            content: `${fmtN(inv.totalCgst)}`,
             styles: { fontStyle: "bold", halign: "right" },
           },
           "",
           {
-            content: `₹${fmtN(inv.totalSgst)}`,
+            content: `${fmtN(inv.totalSgst)}`,
             styles: { fontStyle: "bold", halign: "right" },
           },
           {
-            content: `₹${fmtN(inv.grandTotal)}`,
+            content: `${fmtN(inv.grandTotal)}`,
             styles: { fontStyle: "bold", halign: "right" },
           },
         ]);
@@ -676,16 +776,16 @@ export default function InvoiceDetail() {
           "",
           "",
           {
-            content: `₹${fmtN(inv.subTotal)}`,
+            content: `${fmtN(inv.subTotal)}`,
             styles: { fontStyle: "bold", halign: "right" },
           },
           "",
           {
-            content: `₹${fmtN(inv.totalIgst)}`,
+            content: `${fmtN(inv.totalIgst)}`,
             styles: { fontStyle: "bold", halign: "right" },
           },
           {
-            content: `₹${fmtN(inv.grandTotal)}`,
+            content: `${fmtN(inv.grandTotal)}`,
             styles: { fontStyle: "bold", halign: "right" },
           },
         ]);
@@ -870,6 +970,9 @@ export default function InvoiceDetail() {
       });
 
       y = doc.lastAutoTable.finalY;
+      if (inv.items.length > 5) {
+        y += 4.5; // half line space (about 4.5mm)
+      }
 
       // ─────────────────────────────────────────────────────────────────────────
       // SECTION 6: AMOUNT IN WORDS + BANK DETAILS + TAX SUMMARY
@@ -878,8 +981,34 @@ export default function InvoiceDetail() {
       const rightColW = halfW;
       const rightColX = m + leftColW + 2;
 
+      // ── Right col: Tax summary ────────────────────────────────────────────────
+      const taxRows = [
+        ["Total Amount Before Tax", `Rs. ${fmtN(inv.subTotal)}`],
+        ...(isCgstSgst
+          ? [
+              ["Add : CGST", `Rs. ${fmtN(inv.totalCgst)}`],
+              ["Add : SGST", `Rs. ${fmtN(inv.totalSgst)}`],
+            ]
+          : [["Add : IGST", `Rs. ${fmtN(inv.totalIgst)}`]]),
+        ["Tax Amount : GST", `Rs. ${fmtN(inv.totalTax)}`],
+        ...(inv.roundOff !== 0
+          ? [
+              [
+                "Round Off Value:",
+                `${inv.roundOff > 0 ? "+" : ""}Rs. ${fmtN(inv.roundOff)}`,
+              ],
+            ]
+          : []),
+        ["Amount With Tax", `Rs. ${fmtN(inv.grandTotal)}`],
+        ["Paid Amount", `Rs. ${fmtN(inv.paidAmount)}`],
+        ["Balance Due", `Rs. ${fmtN(inv.balanceAmount)}`],
+      ];
+
+      const taxRowH = 3.8;
+      const totalTaxH = taxRows.length * taxRowH;
+
       // ── Left col: Amount in words ─────────────────────────────────────────────
-      const wordsBoxH = 14;
+      const wordsBoxH = totalTaxH;
       doc.setDrawColor(...MGRAY);
       doc.setLineWidth(0.2);
       doc.rect(leftX, y, leftColW, wordsBoxH);
@@ -901,52 +1030,37 @@ export default function InvoiceDetail() {
         });
       });
 
-      // ── Right col: Tax summary ────────────────────────────────────────────────
-      const taxRows = [
-        ["Total Amount Before Tax", `₹${fmtN(inv.subTotal)}`],
-        ...(isCgstSgst
-          ? [
-              ["Add : CGST", `₹${fmtN(inv.totalCgst)}`],
-              ["Add : SGST", `₹${fmtN(inv.totalSgst)}`],
-            ]
-          : [["Add : IGST", `₹${fmtN(inv.totalIgst)}`]]),
-        ["Tax Amount : GST", `₹${fmtN(inv.totalTax)}`],
-        ...(inv.roundOff !== 0
-          ? [
-              [
-                "Round Off Value:",
-                `${inv.roundOff > 0 ? "+" : ""}${fmtN(inv.roundOff)}`,
-              ],
-            ]
-          : []),
-        ["Amount With Tax", `₹${fmtN(inv.grandTotal)}`],
-        ["Paid Amount", `₹${fmtN(inv.paidAmount)}`],
-        ["Balance Due", `₹${fmtN(inv.balanceAmount)}`],
-      ];
-
-      const rowH = wordsBoxH / taxRows.length;
+      // ── Draw tax rows on the right ───────────────────────────────────────────
       taxRows.forEach(([label, val], i) => {
-        const ry = y + i * rowH;
+        const ry = y + i * taxRowH;
         doc.setDrawColor(...MGRAY);
-        doc.rect(rightColX, ry, rightColW, rowH);
+        doc.rect(rightColX, ry, rightColW, taxRowH);
 
         const isBold = label === "Amount With Tax" || label === "Balance Due";
         doc.setFont("helvetica", isBold ? "bold" : "normal");
         doc.setFontSize(7);
         doc.setTextColor(...BLACK);
-        doc.text(label, rightColX + 2, ry + rowH / 2 + 1.5);
-        doc.text(":", rightColX + rightColW * 0.55, ry + rowH / 2 + 1.5);
-        doc.text(val, rightColX + rightColW - 2, ry + rowH / 2 + 1.5, {
+        doc.text(label, rightColX + 2, ry + taxRowH / 2 + 1.5);
+        doc.text(":", rightColX + rightColW * 0.55, ry + taxRowH / 2 + 1.5);
+        doc.text(val, rightColX + rightColW - 2, ry + taxRowH / 2 + 1.5, {
           align: "right",
         });
       });
 
-      y += wordsBoxH;
+      y += totalTaxH;
 
       // ─────────────────────────────────────────────────────────────────────────
       // SECTION 7: BANK DETAILS (left) + SIGNATURE (right)
       // ─────────────────────────────────────────────────────────────────────────
-      const bankH = 26;
+      const hasBankOverride = inv.bankDetailsOverride && (
+        inv.bankDetailsOverride.bankName ||
+        inv.bankDetailsOverride.bankAccount ||
+        inv.bankDetailsOverride.bankIfsc ||
+        inv.bankDetailsOverride.bankBranch ||
+        inv.bankDetailsOverride.bankHolderName
+      );
+
+      const bankH = sigImg ? 32 : 26;
       doc.setDrawColor(...MGRAY);
       doc.rect(leftX, y, leftColW, bankH);
       doc.rect(rightColX, y, rightColW, bankH);
@@ -960,21 +1074,21 @@ export default function InvoiceDetail() {
       doc.text("Bank Details", leftX + 2, y + 3);
 
       const bankInfo = [
-        ["Account Holder Name", S.name || "Aggarwal traders"],
-        ["Bank Account Number", S.bankAccount || ""],
-        ["Bank IFSC Code", S.bankIfsc || ""],
-        ["Bank Name", S.bankName || ""],
-        ["Bank Branch Name", S.bankBranch || ""],
+        ["Account Holder Name", (hasBankOverride ? inv.bankDetailsOverride.bankHolderName : sName) || "Aggarwal traders"],
+        ["Bank Account Number", (hasBankOverride ? inv.bankDetailsOverride.bankAccount : S.bankAccount) || ""],
+        ["Bank IFSC Code", (hasBankOverride ? inv.bankDetailsOverride.bankIfsc : S.bankIfsc) || ""],
+        ["Bank Name", (hasBankOverride ? inv.bankDetailsOverride.bankName : S.bankName) || ""],
+        ["Bank Branch Name", (hasBankOverride ? inv.bankDetailsOverride.bankBranch : S.bankBranch) || ""],
       ];
 
       doc.setFontSize(7);
       bankInfo.forEach(([key, val], i) => {
-        const bly = y + 6 + i * 3.8;
+        const bly = y + 6 + i * (sigImg ? 4.2 : 3.8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(...DGRAY);
         doc.text(key + " :", leftX + 2, bly);
         doc.setTextColor(...BLACK);
-        doc.text(val, leftX + 40, bly);
+        doc.text(String(val), leftX + 40, bly);
       });
 
       // Signature box (right)
@@ -982,22 +1096,39 @@ export default function InvoiceDetail() {
       doc.setFontSize(8);
       doc.setTextColor(...BLACK);
       doc.text(
-        "Certified that the particular given above are true",
+        "Certified that the particulars given above are true",
         rightColX + rightColW / 2,
-        y + 6,
-        { align: "center" },
+        y + 5,
+        { align: "center" }
       );
-      doc.text("and correct", rightColX + rightColW / 2, y + 10, {
+      doc.text("and correct", rightColX + rightColW / 2, y + 9, {
         align: "center",
       });
 
       doc.setFontSize(9);
       doc.text(
-        `For, ${S.name || "AGGARWAL TRADERS"}`,
+        `For, ${sName || "AGGARWAL TRADERS"}`,
         rightColX + rightColW / 2,
-        y + 16,
+        y + 14,
         { align: "center" },
       );
+
+      if (sigImg) {
+        try {
+          const sigW = 32;
+          const sigH = 12;
+          doc.addImage(
+            sigImg,
+            "PNG",
+            rightColX + (rightColW - sigW) / 2,
+            y + 15,
+            sigW,
+            sigH
+          );
+        } catch (err) {
+          console.error("Error drawing signature in PDF:", err);
+        }
+      }
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
@@ -1029,19 +1160,21 @@ export default function InvoiceDetail() {
       const defaultTerms = [
         "1. This is an electronically generated invoice.",
         "2. All disputes are subject to DELHI jurisdiction.",
-        "3. Interest will charge 24 per annum after 15 days",
+        "3. Interest will charge 24% per annum after 15 days",
       ];
-      const termsLines = (inv.terms || "").split("\n").filter(Boolean);
-      const allTerms = termsLines.length > 0 ? termsLines : defaultTerms;
-
+      
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6.8);
       doc.setTextColor(...DGRAY);
-      allTerms.slice(0, 4).forEach((line, i) => {
+
+      const termsText = inv.terms || defaultTerms.join("\n");
+      const wrappedTerms = doc.splitTextToSize(termsText, leftColW - 4);
+      wrappedTerms.slice(0, 5).forEach((line, i) => {
         doc.text(line, leftX + 2, y + 8 + i * 3.5);
       });
 
       y += termsH;
+      } // closing the copies loop
 
       // ─────────────────────────────────────────────────────────────────────────
       // DONE — Save
@@ -1326,6 +1459,33 @@ export default function InvoiceDetail() {
                   </td>
                 </tr>
               ))}
+              {/* Empty space of about two items if items are less than three */}
+              {invoice.items.length < 3 &&
+                Array.from({ length: 2 }).map((_, idx) => (
+                  <tr key={`empty-${idx}`} className="h-[40px]">
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3"></td>
+                    {isCgstSgst ? (
+                      <>
+                        <td className="px-4 py-3"></td>
+                        <td className="px-4 py-3"></td>
+                        <td className="px-4 py-3"></td>
+                        <td className="px-4 py-3"></td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3"></td>
+                        <td className="px-4 py-3"></td>
+                      </>
+                    )}
+                    <td className="px-4 py-3"></td>
+                  </tr>
+                ))}
             </tbody>
 
             {/* Totals footer */}
@@ -1369,7 +1529,7 @@ export default function InvoiceDetail() {
       </div>
 
       {/* ── Amount summary ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${invoice.items.length > 5 ? 'mt-7' : 'mt-4'}`}>
         {/* Notes + Terms */}
         {(invoice.notes || invoice.terms) && (
           <div className="bg-white rounded-xl border border-slate-100 p-5 space-y-3">

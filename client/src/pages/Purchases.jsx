@@ -238,21 +238,6 @@ export default function Purchases() {
   return (
     <div className="space-y-6">
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Purchase</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Track all your purchases and payables</p>
-        </div>
-        <button
-          onClick={() => navigate("/purchases/create")}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Create New
-        </button>
-      </div>
-
       {/* ── Stats cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statsLoading
@@ -347,6 +332,15 @@ export default function Purchases() {
               className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
+            </button>
+
+            {/* Create Purchase button aligned to the right */}
+            <button
+              onClick={() => navigate("/purchases/create")}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm md:ml-auto"
+            >
+              <Plus className="w-4 h-4" />
+              Create Purchase
             </button>
           </div>
         </div>

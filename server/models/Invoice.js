@@ -126,9 +126,47 @@ const invoiceSchema = new mongoose.Schema(
     balanceAmount: { type: Number, default: 0 }, // grandTotal - paidAmount
     paymentHistory: [paymentSchema],
 
+    // ── Supplier Details Override (for this bill only) ───────────────────────
+    supplierName:      { type: String, default: "" },
+    supplierGstin:     { type: String, default: "" },
+    supplierAddress:   { type: String, default: "" },
+    supplierCity:      { type: String, default: "" },
+    supplierState:     { type: String, default: "" },
+    supplierPincode:   { type: String, default: "" },
+    supplierPhone:     { type: String, default: "" },
+    supplierEmail:     { type: String, default: "" },
+    supplierStateCode: { type: String, default: "" },
+
     // ── Optional fields ───────────────────────────────────────────────────────
     notes:  { type: String, default: "" },
     terms:  { type: String, default: "Payment due within 30 days." },
+
+    // ── Transportation Details ────────────────────────────────────────────────
+    transportMode:   { type: String, default: "none" },
+    vehicleNumber:   { type: String, default: "" },
+    lrNumber:        { type: String, default: "" },
+    lrDate:          { type: Date, default: null },
+    dateOfSupply:    { type: Date, default: null },
+    placeOfSupply:   { type: String, default: "" },
+    transporterName: { type: String, default: "" },
+    transporterId:   { type: String, default: "" },
+
+    // ── Custom Optional Fields ────────────────────────────────────────────────
+    optionalField1:  { type: String, default: "" },
+    optionalValue1:  { type: String, default: "" },
+    optionalField2:  { type: String, default: "" },
+    optionalValue2:  { type: String, default: "" },
+
+    // ── Bank Details Override & Signature ─────────────────────────────────────
+    bankDetailsOverride: {
+      bankName:       { type: String, default: "" },
+      bankAccount:    { type: String, default: "" },
+      bankIfsc:       { type: String, default: "" },
+      bankBranch:     { type: String, default: "" },
+      bankHolderName: { type: String, default: "" },
+    },
+    signatureUrl: { type: String, default: "" }, // Base64 image
+    printCopies:  { type: [String], default: ["recipient", "transporter", "supplier"] },
   },
   {
     timestamps: true,

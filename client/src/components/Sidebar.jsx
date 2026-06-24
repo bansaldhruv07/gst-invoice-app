@@ -19,20 +19,10 @@ import {
 // ─── Navigation items ─────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   {
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    to: "/dashboard",
-  },
-  {
     label: "Invoices",
     icon: Receipt,
     to: "/dashboard", // goes to dashboard which shows invoice list
     exact: true,
-  },
-  {
-    label: "Create Invoice",
-    icon: PlusCircle,
-    to: "/invoices/create",
   },
   {
     label: "Buyers",
@@ -117,6 +107,22 @@ export default function Sidebar() {
           </p>
         </div>
       )}
+
+      {/* ── Highlighted Create Invoice Button ───────────────────────────────── */}
+      <div className={`mx-3 mt-4 ${collapsed ? "flex justify-center" : ""}`}>
+        <NavLink
+          to="/invoices/create"
+          className={({ isActive }) => `
+            flex items-center gap-2 rounded-lg text-sm font-bold transition-all duration-150 shadow-sm
+            bg-indigo-600 hover:bg-amber-400 text-white w-full justify-center
+            ${collapsed ? "h-10 w-10 p-0 rounded-full" : "px-4 py-2.5"}
+          `}
+          title="Create Invoice"
+        >
+          <PlusCircle className="w-5 h-5 flex-shrink-0 text-white" />
+          {!collapsed && <span>Create Invoice</span>}
+        </NavLink>
+      </div>
 
       {/* ── Navigation links ─────────────────────────────────────────────────── */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
@@ -235,9 +241,22 @@ export default function Sidebar() {
           <Package className="w-4 h-4 flex-shrink-0" />
           {!collapsed && <span>Items / Products</span>}
         </NavLink>
-        <NavLink to="/pricing" className="...">
-          <Crown className="w-4 h-4" />
-          {!collapsed && <span>Upgrade Plan</span>}
+        <NavLink
+          to="/pricing"
+          className={({ isActive }) => `
+            flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+            transition-all duration-150
+            ${collapsed ? "justify-center" : ""}
+            ${
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            }
+          `}
+          title={collapsed ? "Subscriptions" : undefined}
+        >
+          <Crown className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Subscriptions</span>}
         </NavLink>
       </nav>
 

@@ -126,21 +126,72 @@ router.get("/supplier-info", protect, (req, res) => {
   res.json({
     success: true,
     supplier: {
-      name:        process.env.SUPPLIER_NAME        || "Your Business Name",
-      gstin:       process.env.SUPPLIER_GSTIN       || "",
-      address:     process.env.SUPPLIER_ADDRESS     || "",
-      city:        process.env.SUPPLIER_CITY        || "",
-      state:       process.env.SUPPLIER_STATE       || "",
-      pincode:     process.env.SUPPLIER_PINCODE     || "",
-      phone:       process.env.SUPPLIER_PHONE       || "",
-      email:       process.env.SUPPLIER_EMAIL       || "",
-      bankName:    process.env.SUPPLIER_BANK_NAME   || "",
-      bankAccount: process.env.SUPPLIER_BANK_ACCOUNT|| "",
-      bankIfsc:    process.env.SUPPLIER_BANK_IFSC   || "",
-      bankBranch:  process.env.SUPPLIER_BANK_BRANCH || "",
-      stateCode:   process.env.SUPPLIER_STATE_CODE  || "07",
+      name:        req.user.supplierName        || process.env.SUPPLIER_NAME        || "Your Business Name",
+      gstin:       req.user.supplierGstin       || process.env.SUPPLIER_GSTIN       || "",
+      address:     req.user.supplierAddress     || process.env.SUPPLIER_ADDRESS     || "",
+      city:        req.user.supplierCity        || process.env.SUPPLIER_CITY        || "",
+      state:       req.user.supplierState       || process.env.SUPPLIER_STATE       || "",
+      pincode:     req.user.supplierPincode     || process.env.SUPPLIER_PINCODE     || "",
+      phone:       req.user.supplierPhone       || process.env.SUPPLIER_PHONE       || "",
+      email:       req.user.supplierEmail       || process.env.SUPPLIER_EMAIL       || "",
+      bankName:    req.user.supplierBankName    || process.env.SUPPLIER_BANK_NAME   || "",
+      bankAccount: req.user.supplierBankAccount || process.env.SUPPLIER_BANK_ACCOUNT|| "",
+      bankIfsc:    req.user.supplierBankIfsc    || process.env.SUPPLIER_BANK_IFSC   || "",
+      bankBranch:  req.user.supplierBankBranch  || process.env.SUPPLIER_BANK_BRANCH || "",
+      stateCode:   req.user.supplierStateCode   || process.env.SUPPLIER_STATE_CODE  || "07",
+      logoUrl:     req.user.logoUrl             || process.env.SUPPLIER_LOGO_URL    || "",
     },
   });
+});
+
+router.put("/supplier-info", protect, async (req, res) => {
+  try {
+    const User = require("../models/User");
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    user.supplierName = req.body.name || "";
+    user.supplierGstin = req.body.gstin || "";
+    user.supplierAddress = req.body.address || "";
+    user.supplierCity = req.body.city || "";
+    user.supplierState = req.body.state || "";
+    user.supplierPincode = req.body.pincode || "";
+    user.supplierPhone = req.body.phone || "";
+    user.supplierEmail = req.body.email || "";
+    user.supplierBankName = req.body.bankName || "";
+    user.supplierBankAccount = req.body.bankAccount || "";
+    user.supplierBankIfsc = req.body.bankIfsc || "";
+    user.supplierBankBranch = req.body.bankBranch || "";
+    user.supplierStateCode = req.body.stateCode || "07";
+    user.logoUrl = req.body.logoUrl || "";
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Business details updated successfully",
+      supplier: {
+        name: user.supplierName,
+        gstin: user.supplierGstin,
+        address: user.supplierAddress,
+        city: user.supplierCity,
+        state: user.supplierState,
+        pincode: user.supplierPincode,
+        phone: user.supplierPhone,
+        email: user.supplierEmail,
+        bankName: user.supplierBankName,
+        bankAccount: user.supplierBankAccount,
+        bankIfsc: user.supplierBankIfsc,
+        bankBranch: user.supplierBankBranch,
+        stateCode: user.supplierStateCode,
+        logoUrl: user.logoUrl,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;

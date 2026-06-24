@@ -401,24 +401,6 @@ export default function Items() {
 
   return (
     <div className="space-y-6">
-      {/* ── Page header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">
-            Items / Products
-          </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Manage your product and service catalogue
-          </p>
-        </div>
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add Item
-        </button>
-      </div>
 
       {/* ── Filters ──────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 p-4">
@@ -461,6 +443,15 @@ export default function Items() {
               </button>
             ))}
           </div>
+
+          {/* Add Item button aligned to the right */}
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm md:ml-auto"
+          >
+            <Plus className="w-4 h-4" />
+            Add Item
+          </button>
         </div>
       </div>
 

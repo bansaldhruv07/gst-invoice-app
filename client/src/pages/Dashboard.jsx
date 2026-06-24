@@ -168,23 +168,6 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
 
-      {/* ── Page header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Invoice</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Manage all your GST invoices
-          </p>
-        </div>
-        <button
-          onClick={() => navigate("/invoices/create")}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Create Invoice
-        </button>
-      </div>
-
       {/* ── Stats cards — exactly like GimBooks top bar ───────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statsLoading
@@ -271,6 +254,15 @@ export default function Dashboard() {
             title="Refresh"
           >
             <RefreshCw className="w-4 h-4" />
+          </button>
+
+          {/* Create Invoice button aligned to the right */}
+          <button
+            onClick={() => navigate("/invoices/create")}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm md:ml-auto"
+          >
+            <Plus className="w-4 h-4" />
+            Create Invoice
           </button>
         </div>
       </div>

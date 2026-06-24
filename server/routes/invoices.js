@@ -179,6 +179,30 @@ router.post("/", canCreateInvoice, async (req, res) => {
       discountValue,
       notes,
       terms,
+      transportMode,
+      vehicleNumber,
+      lrNumber,
+      lrDate,
+      dateOfSupply,
+      placeOfSupply,
+      transporterName,
+      transporterId,
+      optionalField1,
+      optionalValue1,
+      optionalField2,
+      optionalValue2,
+      bankDetailsOverride,
+      signatureUrl,
+      printCopies,
+      supplierName,
+      supplierGstin,
+      supplierAddress,
+      supplierCity,
+      supplierState,
+      supplierPincode,
+      supplierPhone,
+      supplierEmail,
+      supplierStateCode,
     } = req.body;
 
     // Validate required fields
@@ -198,11 +222,11 @@ router.post("/", canCreateInvoice, async (req, res) => {
       });
     }
 
-    // Compare supplier state code (from .env) with buyer state code
-    const supplierStateCode = process.env.SUPPLIER_STATE_CODE || "07";
+    // Compare supplier state code with buyer state code
+    const activeSupplierStateCode = supplierStateCode || process.env.SUPPLIER_STATE_CODE || "07";
     const buyerStateCode = buyer.stateCode || "";
     const taxType =
-      buyerStateCode && buyerStateCode !== supplierStateCode
+      buyerStateCode && buyerStateCode !== activeSupplierStateCode
         ? "igst" // different state → IGST
         : "cgst_sgst"; // same state or unknown → CGST + SGST
 
@@ -269,6 +293,30 @@ router.post("/", canCreateInvoice, async (req, res) => {
       balanceAmount: grandTotal,
       notes: notes || "",
       terms: terms || "Payment due within 30 days.",
+      transportMode: transportMode || "none",
+      vehicleNumber: vehicleNumber || "",
+      lrNumber: lrNumber || "",
+      lrDate: lrDate || null,
+      dateOfSupply: dateOfSupply || null,
+      placeOfSupply: placeOfSupply || "",
+      transporterName: transporterName || "",
+      transporterId: transporterId || "",
+      optionalField1: optionalField1 || "",
+      optionalValue1: optionalValue1 || "",
+      optionalField2: optionalField2 || "",
+      optionalValue2: optionalValue2 || "",
+      bankDetailsOverride: bankDetailsOverride || { bankName: "", bankAccount: "", bankIfsc: "", bankBranch: "", bankHolderName: "" },
+      signatureUrl: signatureUrl || "",
+      printCopies: printCopies || ["recipient", "transporter", "supplier"],
+      supplierName: supplierName || "",
+      supplierGstin: supplierGstin || "",
+      supplierAddress: supplierAddress || "",
+      supplierCity: supplierCity || "",
+      supplierState: supplierState || "",
+      supplierPincode: supplierPincode || "",
+      supplierPhone: supplierPhone || "",
+      supplierEmail: supplierEmail || "",
+      supplierStateCode: supplierStateCode || "",
     });
 
     // Populate buyer details before returning
