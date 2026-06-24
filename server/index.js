@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const subscriptionRoutes = require("./routes/subscriptions");
+const sellerRoutes = require("./routes/sellers");
+const purchaseRoutes = require("./routes/purchases");
 
 // Load environment variables from .env file
 dotenv.config();
@@ -71,6 +73,8 @@ app.use((err, req, res, next) => {
 });
 
 app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/sellers", sellerRoutes);
+app.use("/api/purchases", purchaseRoutes);
 
 // ─── Seed default plans on startup ───────────────────────────────────────────
 const Plan = require("./models/Plan");

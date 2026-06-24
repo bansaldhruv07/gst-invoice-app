@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Receipt,
   Crown,
+  ShoppingCart,
+  Store,
 } from "lucide-react";
 // ─── Navigation items ─────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -145,7 +147,49 @@ export default function Sidebar() {
             {!collapsed && <span className="truncate">{label}</span>}
           </NavLink>
         ))}
+        {/* Purchases section */}
+        {!collapsed && (
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2 mt-3">
+            Purchases
+          </p>
+        )}
 
+        <NavLink
+          to="/purchases"
+          className={({ isActive }) => `
+    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+    transition-all duration-150
+    ${collapsed ? "justify-center" : ""}
+    ${
+      isActive
+        ? "bg-indigo-600 text-white shadow-sm"
+        : "text-slate-400 hover:bg-slate-800 hover:text-white"
+    }
+  `}
+          title={collapsed ? "Purchases" : undefined}
+        >
+          <ShoppingCart className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Purchases</span>}
+        </NavLink>
+
+        {/* Sellers under Masters */}
+        <NavLink
+          to="/sellers"
+          className={({ isActive }) => `
+    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+    transition-all duration-150
+    ${collapsed ? "justify-center" : ""}
+    ${
+      isActive
+        ? "bg-indigo-600 text-white shadow-sm"
+        : "text-slate-400 hover:bg-slate-800 hover:text-white"
+    }
+  `}
+          title={collapsed ? "Sellers" : undefined}
+        >
+          <Store className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Sellers</span>}
+        </NavLink>
         {/* Divider */}
         <div className="border-t border-slate-700 my-3" />
 

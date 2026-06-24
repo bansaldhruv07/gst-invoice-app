@@ -11,6 +11,9 @@ import Items from "./pages/Items";
 import CreateInvoice from "./pages/CreateInvoice";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
+import Purchases from "./pages/Purchases";
+import CreatePurchase from "./pages/CreatePurchase";
+import Sellers from "./pages/Sellers";
 
 // Layout
 import Layout from "./components/Layout";
@@ -104,6 +107,9 @@ export default function App() {
               <Route path="items" element={<Items />} />
               <Route path="invoices/create" element={<CreateInvoice />} />
               <Route path="invoices/:id" element={<InvoiceDetail />} />
+              <Route path="purchases" element={<Purchases />} />
+              <Route path="purchases/create" element={<CreatePurchase />} />
+              <Route path="sellers" element={<Sellers />} />
             </Route>
 
             {/* Catch-all */}
