@@ -37,10 +37,10 @@ const purchaseSchema = new mongoose.Schema(
     },
 
     // Auto-generated: PUR-2024-0001
+    // Unique per business, not across the whole database (see index below)
     purchaseNumber: {
       type: String,
       required: true,
-      unique: true,
     },
 
     // Seller's invoice number (what they gave you)
@@ -103,5 +103,7 @@ const purchaseSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+purchaseSchema.index({ user: 1, purchaseNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model("Purchase", purchaseSchema);

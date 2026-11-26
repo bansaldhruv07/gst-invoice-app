@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { stateCodeFor } = require("../services/states");
 
 const buyerSchema = new mongoose.Schema(
   {
@@ -55,6 +56,18 @@ const buyerSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    // What the buyer already owed when they were added here
+    openingBalance: { type: Number, default: 0, min: 0 },
+    openingPayments: [
+      {
+        amount: { type: Number, required: true },
+        date: { type: Date, default: Date.now },
+        mode: { type: String, default: "upi" },
+        note: { type: String, default: "" },
+      },
+    ],
+    // 0 means no limit
+    creditLimit: { type: Number, default: 0, min: 0 },
     mobile: {
       type: String,
       trim: true,
@@ -77,6 +90,8 @@ const buyerSchema = new mongoose.Schema(
 buyerSchema.pre("save", function (next) {
   if (this.gstin && this.gstin.length >= 2) {
     this.stateCode = this.gstin.substring(0, 2);
+  } else if (this.isModified("state") || this.isModified("gstin")) {
+    this.stateCode = stateCodeFor(this.state);
   }
   next();
 });

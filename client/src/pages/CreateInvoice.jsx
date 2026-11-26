@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link, useParams, useSearchParams, useLocation } from "react-router-dom";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import {
@@ -23,22 +23,12 @@ import {
   Truck,
 } from "lucide-react";
 import UpgradePrompt from "../components/UpgradePrompt";
+import { UNITS, GST_RATES } from "../lib/units";
+import { money, shortDate } from "../lib/format";
+import { Spinner } from "../components/ui";
+import { defaultTerms } from "../lib/terms";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const GST_RATES = [0, 5, 12, 18, 28];
-const UNITS = [
-  "pcs",
-  "kg",
-  "ltr",
-  "mtr",
-  "box",
-  "hrs",
-  "nos",
-  "set",
-  "pair",
-  "dozen",
-  "other",
-];
 const EMPTY_ITEM = {
   name: "",
   hsn: "",
@@ -191,7 +181,7 @@ function QuickAddBuyerModal({ onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="!m-0 fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -207,24 +197,24 @@ function QuickAddBuyerModal({ onClose, onSave }) {
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Buyer Name *</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Buyer Name *</label>
             <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bansal Steels" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">GSTIN</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">GSTIN</label>
               <input type="text" value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="e.g. 07AAAAA0000A1Z1" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Mobile / Phone</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Mobile / Phone</label>
               <input type="text" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="e.g. 9876543210" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">State</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">State</label>
               <select value={state} onChange={(e) => setState(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="">Select State</option>
                 {STATES.map((s) => (
@@ -233,23 +223,23 @@ function QuickAddBuyerModal({ onClose, onSave }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">City</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">City</label>
               <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Delhi" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Address</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Address</label>
             <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street Address" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Pincode</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Pincode</label>
               <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="e.g. 110001" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Email</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g. email@buyer.com" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
@@ -302,7 +292,7 @@ function QuickAddItemModal({ onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="!m-0 fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -318,17 +308,17 @@ function QuickAddItemModal({ onClose, onSave }) {
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Item Name *</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Item Name *</label>
             <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. putty" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Base Price (INR) *</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Base Price (INR) *</label>
               <input type="number" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Unit</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Unit</label>
               <select value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 capitalize">
                 {UNITS.map((u) => (
                   <option key={u} value={u}>{u}</option>
@@ -339,7 +329,7 @@ function QuickAddItemModal({ onClose, onSave }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">GST Rate (%)</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">GST Rate (%)</label>
               <select value={gstPercent} onChange={(e) => setGstPercent(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 {GST_RATES.map((r) => (
                   <option key={r} value={r}>{r}%</option>
@@ -347,7 +337,7 @@ function QuickAddItemModal({ onClose, onSave }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">HSN / SAC Code</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">HSN / SAC Code</label>
               <input type="text" value={hsn} onChange={(e) => setHsn(e.target.value)} placeholder="e.g. 3214" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
             </div>
           </div>
@@ -571,11 +561,11 @@ function ItemNameCell({ value, onSelect }) {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="!m-0 fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-150 overflow-hidden flex flex-col max-h-[85vh] animate-scaleIn">
             {/* Header */}
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                 <Search className="w-4 h-4 text-indigo-600" />
                 Select Product / Service
               </h3>
@@ -684,9 +674,31 @@ function ItemNameCell({ value, onSelect }) {
 }
 
 // ─── Main CreateInvoice Page ──────────────────────────────────────────────────
+// Also edits invoices, duplicates them (?from=id) and handles quotations.
 export default function CreateInvoice() {
+  const { pathname } = useLocation();
+  const { id } = useParams();
+  const [params] = useSearchParams();
+  // A fresh form whenever the record being worked on changes
+  return <InvoiceForm key={`${pathname}?${params}`} editId={id} />;
+}
+
+function InvoiceForm({ editId }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [params] = useSearchParams();
+  const isQuote = pathname.startsWith("/quotations");
+  const copyId = params.get("from");
+  const sourceId = editId || copyId;
+  const buyerParam = params.get("buyer");
+  const noun = isQuote ? "quotation" : "invoice";
+  const listPath = isQuote ? "/quotations" : "/invoices";
+
   const [upgradePrompt, setUpgradePrompt] = useState(null);
+  const [loadingSource, setLoadingSource] = useState(Boolean(sourceId));
+  const [validUntil, setValidUntil] = useState("");
+  const [original, setOriginal] = useState(null);
+  const [buyerContext, setBuyerContext] = useState(null);
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [buyer, setBuyer] = useState(null);
@@ -700,7 +712,8 @@ export default function CreateInvoice() {
   const [discountType, setDiscountType] = useState("amount");
   const [discountValue, setDiscountValue] = useState(0);
   const [notes, setNotes] = useState("");
-  const [terms, setTerms] = useState("Payment due within 30 days.");
+  const [terms, setTerms] = useState("");
+  const [challanNumber, setChallanNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [supplierStateCode, setSupplierStateCode] = useState("07");
   const [showBuyerModal, setShowBuyerModal] = useState(false);
@@ -715,7 +728,6 @@ export default function CreateInvoice() {
   const [placeOfSupply, setPlaceOfSupply] = useState("");
   const [transporterName, setTransporterName] = useState("");
   const [transporterId, setTransporterId] = useState("");
-  const [supplyType, setSupplyType] = useState("inter_state");
 
   const [showTransportDetails, setShowTransportDetails] = useState(false);
   const [showTransporterFields, setShowTransporterFields] = useState(false);
@@ -744,34 +756,104 @@ export default function CreateInvoice() {
   const [editSupplier, setEditSupplier] = useState(false);
 
   useEffect(() => {
-    const fetchSupplierInfo = async () => {
+    const day = (value) => (value ? String(value).slice(0, 10) : "");
+
+    const fill = (S, doc) => {
+      // Details saved on the record win over the current profile
+      const pick = (override, key) => doc?.[override] || S[key] || "";
+      setSupplier(S);
+      setSupplierStateCode(pick("supplierStateCode", "stateCode") || "07");
+      setSupplierName(pick("supplierName", "name"));
+      setSupplierGstin(pick("supplierGstin", "gstin"));
+      setSupplierAddress(pick("supplierAddress", "address"));
+      setSupplierCity(pick("supplierCity", "city"));
+      setSupplierState(pick("supplierState", "state"));
+      setSupplierPincode(pick("supplierPincode", "pincode"));
+      setSupplierPhone(pick("supplierPhone", "phone"));
+      setSupplierEmail(pick("supplierEmail", "email"));
+
+      const bank = doc?.bankDetailsOverride;
+      const custom = bank && Object.values(bank).some(Boolean);
+      setBankName((custom ? bank.bankName : S.bankName) || "");
+      setBankAccount((custom ? bank.bankAccount : S.bankAccount) || "");
+      setBankHolderName((custom ? bank.bankHolderName : S.name) || "");
+      setBankIfsc((custom ? bank.bankIfsc : S.bankIfsc) || "");
+      setBankBranch((custom ? bank.bankBranch : S.bankBranch) || "");
+
+      setTerms(doc ? doc.terms || "" : S.defaultTerms || defaultTerms(S.city));
+      if (!doc) return;
+
+      setBuyer(doc.buyer);
+      setInvoiceType(doc.invoiceType);
+      setTaxMode(doc.taxMode);
+      setItems(
+        doc.items.map((l) => ({
+          ...EMPTY_ITEM,
+          item: l.item || null,
+          name: l.name,
+          hsn: l.hsn || "",
+          unit: l.unit,
+          quantity: l.quantity,
+          rate: l.rate,
+          gstPercent: l.gstPercent,
+        })),
+      );
+      setDiscountType(doc.discountType || "amount");
+      setDiscountValue(doc.discountValue || 0);
+      setNotes(doc.notes || "");
+      setSignatureUrl(doc.signatureUrl || "");
+      setPrintCopies(doc.printCopies?.length ? doc.printCopies : ["recipient"]);
+      setTransportMode(doc.transportMode || "none");
+      setTransporterName(doc.transporterName || "");
+      setTransporterId(doc.transporterId || "");
+      // A copy is a new supply: dates and consignment numbers start blank
+      if (!editId) return;
+      setOriginal(doc);
+      setInvoiceDate(day(doc.invoiceDate));
+      setDueDate(day(doc.dueDate));
+      setValidUntil(day(doc.validUntil));
+      setChallanNumber(doc.challanNumber || "");
+      setVehicleNumber(doc.vehicleNumber || "");
+      setLrNumber(doc.lrNumber || "");
+      setLrDate(day(doc.lrDate));
+      setDateOfSupply(day(doc.dateOfSupply));
+      setPlaceOfSupply(doc.placeOfSupply || "");
+    };
+
+    const load = async () => {
       try {
-        const { data } = await api.get("/auth/supplier-info");
-        if (data && data.supplier) {
-          const S = data.supplier;
-          setSupplier(S);
-          setSupplierStateCode(S.stateCode || "07");
-          setBankName(S.bankName || "");
-          setBankAccount(S.bankAccount || "");
-          setBankHolderName(S.name || "");
-          setBankIfsc(S.bankIfsc || "");
-          setBankBranch(S.bankBranch || "");
-          
-          setSupplierName(S.name || "");
-          setSupplierGstin(S.gstin || "");
-          setSupplierAddress(S.address || "");
-          setSupplierCity(S.city || "");
-          setSupplierState(S.state || "");
-          setSupplierPincode(S.pincode || "");
-          setSupplierPhone(S.phone || "");
-          setSupplierEmail(S.email || "");
+        const [profile, record] = await Promise.all([
+          api.get("/auth/supplier-info"),
+          sourceId ? api.get(`${listPath}/${sourceId}`) : null,
+        ]);
+        fill(profile.data.supplier, record && (record.data.invoice || record.data.quotation));
+        if (!sourceId && buyerParam) {
+          const { data } = await api.get(`/buyers/${buyerParam}`);
+          setBuyer(data.buyer);
         }
+        setLoadingSource(false);
       } catch (err) {
-        console.error("Failed to load supplier state code:", err);
+        toast.error(err.response?.data?.message || "Could not load the form");
+        if (sourceId) navigate(listPath);
+        else setLoadingSource(false);
       }
     };
-    fetchSupplierInfo();
-  }, []);
+    load();
+  }, [editId, sourceId, buyerParam, listPath, navigate]);
+
+  // Dues, credit limit and past prices of the chosen buyer
+  const buyerId = buyer?._id;
+  useEffect(() => {
+    if (!buyerId) return;
+    let current = true;
+    api.get(`/ledger/buyer/${buyerId}/context`)
+      .then(({ data }) => current && setBuyerContext({ ...data, buyerId }))
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [buyerId]);
+  const context = buyerContext && buyerContext.buyerId === buyerId ? buyerContext : null;
 
   // ── Derive tax type from buyer state vs supplier state ─────────────────────
   const taxType =
@@ -780,14 +862,21 @@ export default function CreateInvoice() {
       : "cgst_sgst";
 
   // ── Recalculate all items whenever inputs change ───────────────────────────
-  const calcItems = items.map((item) => calcItem(item, taxType, taxMode));
+  const billOfSupply = invoiceType === "bill_of_supply";
+  const calcItems = items.map((item) =>
+    calcItem(billOfSupply ? { ...item, gstPercent: 0 } : item, taxType, taxMode),
+  );
 
   // ── Totals ─────────────────────────────────────────────────────────────────
   const subTotal = calcItems.reduce((s, i) => s + i.taxableAmount, 0);
   const totalCgst = calcItems.reduce((s, i) => s + i.cgstAmount, 0);
   const totalSgst = calcItems.reduce((s, i) => s + i.sgstAmount, 0);
   const totalIgst = calcItems.reduce((s, i) => s + i.igstAmount, 0);
-  const totalTax = totalCgst + totalSgst + totalIgst;
+  // Matches the server: tax is summed before CGST/SGST halves are rounded
+  const totalTax = calcItems.reduce(
+    (s, i) => s + Math.round((i.totalAmount - i.taxableAmount) * 100) / 100,
+    0,
+  );
 
   const discountAmount =
     discountType === "percent"
@@ -820,6 +909,7 @@ export default function CreateInvoice() {
     const updated = [...items];
     updated[idx] = {
       ...updated[idx],
+      item: catalogueItem._id || null,
       name: catalogueItem.name || updated[idx].name,
       hsn: catalogueItem.hsn || updated[idx].hsn || "",
       unit: catalogueItem.unit || updated[idx].unit || "pcs",
@@ -859,13 +949,15 @@ export default function CreateInvoice() {
 
     setLoading(true);
     try {
-      const { data } = await api.post("/invoices", {
+      const payload = {
         buyerId: buyer._id,
+        validUntil: validUntil || null,
         invoiceDate,
         dueDate: dueDate || null,
         invoiceType,
         taxMode,
         items: validItems.map((i) => ({
+          item: i.item || null,
           name: i.name,
           hsn: i.hsn || "",
           unit: i.unit || "pcs",
@@ -877,6 +969,7 @@ export default function CreateInvoice() {
         discountValue: parseFloat(discountValue || 0),
         notes,
         terms,
+        challanNumber,
         transportMode,
         vehicleNumber,
         lrNumber,
@@ -903,20 +996,33 @@ export default function CreateInvoice() {
         supplierPhone,
         supplierEmail,
         supplierStateCode,
-      });
+      };
 
-      toast.success(`Invoice ${data.invoice.invoiceNumber} created!`);
-      navigate(`/invoices/${data.invoice._id}`);
+      const { data } = editId
+        ? await api.put(`${listPath}/${editId}`, payload)
+        : await api.post(listPath, payload);
+      const saved = data.invoice || data.quotation;
+      toast.success(`${saved.invoiceNumber} ${editId ? "updated" : "saved"}`);
+      navigate(isQuote ? "/quotations" : `/invoices/${saved._id}`);
     } catch (err) {
       if (err.response?.data?.upgrade) {
         setUpgradePrompt(err.response.data.message);
       } else {
-        toast.error(err.response?.data?.message || "Failed to create invoice");
+        toast.error(err.response?.data?.message || `Could not save the ${noun}`);
       }
     } finally {
       setLoading(false);
     }
   };
+
+  // What the buyer will owe if this invoice is saved
+  const alreadyCounted = original && original.buyer?._id === buyerId ? original.balanceAmount || 0 : 0;
+  const duesAfter = context ? context.outstanding - alreadyCounted + grandTotal : 0;
+  const overLimit = !isQuote && context?.creditLimit > 0 && duesAfter > context.creditLimit;
+
+  if (loadingSource) {
+    return <div className="flex justify-center py-20"><Spinner /></div>;
+  }
 
   // ── Tax type label ─────────────────────────────────────────────────────────
   const taxLabel = taxType === "igst" ? "IGST" : "CGST + SGST";
@@ -926,7 +1032,7 @@ export default function CreateInvoice() {
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="flex justify-between items-center gap-3">
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(listPath)}
           className="px-4 py-2.5 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
         >
           Cancel
@@ -936,9 +1042,22 @@ export default function CreateInvoice() {
           disabled={loading}
           className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
         >
-          {loading ? "Creating..." : "Submit Invoice"}
+          {loading ? "Saving…" : `Save ${noun}`}
         </button>
       </div>
+
+      {original && (
+        <p className="text-sm text-slate-600">
+          Editing <strong className="font-semibold">{original.invoiceNumber}</strong>. The number stays the same.
+        </p>
+      )}
+
+      {supplier && !(supplier.name && supplier.gstin) && (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Your business name or GSTIN is missing, so it will be blank on the bill.{" "}
+          <Link to="/settings" className="font-semibold underline">Add it in Settings</Link>.
+        </p>
+      )}
 
       {/* ── Invoice settings row ──────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
@@ -949,7 +1068,7 @@ export default function CreateInvoice() {
             <div className="grid grid-cols-2 gap-4">
               {/* Invoice type toggle */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
                   Invoice Type
                 </label>
                 <div className="flex rounded-lg border border-slate-200 overflow-hidden">
@@ -975,7 +1094,7 @@ export default function CreateInvoice() {
 
               {/* Tax mode toggle */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
                   Tax Mode
                 </label>
                 <div className="flex rounded-lg border border-slate-200 overflow-hidden">
@@ -1001,11 +1120,11 @@ export default function CreateInvoice() {
             </div>
 
             {/* Row 2: Invoice Date & Due Date */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Invoice date */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Invoice Date
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  {isQuote ? "Quotation Date" : "Invoice Date"}
                 </label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1020,16 +1139,16 @@ export default function CreateInvoice() {
 
               {/* Due date */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Due Date{" "}
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  {isQuote ? "Valid Until" : "Due Date"}{" "}
                   <span className="text-slate-400 font-normal">(optional)</span>
                 </label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
+                    value={isQuote ? validUntil : dueDate}
+                    onChange={(e) => (isQuote ? setValidUntil : setDueDate)(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -1040,7 +1159,7 @@ export default function CreateInvoice() {
           {/* Right Column: Editable Supplier Details (for this bill only) */}
           <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <label className="text-xs font-bold text-slate-500">
                 Seller Details (Bill Only)
               </label>
               <button
@@ -1055,7 +1174,7 @@ export default function CreateInvoice() {
             {editSupplier ? (
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="col-span-2">
-                  <label className="block text-[10px] font-semibold text-slate-400">Business Name</label>
+                  <label className="block text-xs font-medium text-slate-600">Business Name</label>
                   <input
                     type="text"
                     value={supplierName}
@@ -1064,7 +1183,7 @@ export default function CreateInvoice() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-400">GSTIN</label>
+                  <label className="block text-xs font-medium text-slate-600">GSTIN</label>
                   <input
                     type="text"
                     value={supplierGstin}
@@ -1073,7 +1192,7 @@ export default function CreateInvoice() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-400">Phone</label>
+                  <label className="block text-xs font-medium text-slate-600">Phone</label>
                   <input
                     type="text"
                     value={supplierPhone}
@@ -1082,7 +1201,7 @@ export default function CreateInvoice() {
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-[10px] font-semibold text-slate-400">Address</label>
+                  <label className="block text-xs font-medium text-slate-600">Address</label>
                   <input
                     type="text"
                     value={supplierAddress}
@@ -1091,7 +1210,7 @@ export default function CreateInvoice() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-400">City</label>
+                  <label className="block text-xs font-medium text-slate-600">City</label>
                   <input
                     type="text"
                     value={supplierCity}
@@ -1100,7 +1219,7 @@ export default function CreateInvoice() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-400">State</label>
+                  <label className="block text-xs font-medium text-slate-600">State</label>
                   <input
                     type="text"
                     value={supplierState}
@@ -1109,7 +1228,7 @@ export default function CreateInvoice() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-400">Pincode</label>
+                  <label className="block text-xs font-medium text-slate-600">Pincode</label>
                   <input
                     type="text"
                     value={supplierPincode}
@@ -1118,7 +1237,7 @@ export default function CreateInvoice() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-400">State Code</label>
+                  <label className="block text-xs font-medium text-slate-600">State Code</label>
                   <input
                     type="text"
                     value={supplierStateCode}
@@ -1132,7 +1251,7 @@ export default function CreateInvoice() {
             ) : (
               <div className="text-xs text-slate-600 space-y-1">
                 <p className="font-bold text-slate-800">{supplierName || "—"}</p>
-                <p>{supplierAddress || "—"}, {supplierCity || "—"}, {supplierState || "—"} - {supplierPincode || "—"}</p>
+                <p>{[supplierAddress, supplierCity, supplierState, supplierPincode].filter(Boolean).join(", ") || "—"}</p>
                 <p>
                   <span className="font-semibold text-slate-400">GSTIN:</span> {supplierGstin || "Unregistered"} |{" "}
                   <span className="font-semibold text-slate-400">State Code:</span> {supplierStateCode || "—"}
@@ -1151,7 +1270,7 @@ export default function CreateInvoice() {
       {/* ── Buyer Details ─────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <User className="w-4 h-4 text-indigo-600" />
             Buyer Details
           </h2>
@@ -1181,12 +1300,19 @@ export default function CreateInvoice() {
           </div>
         </div>
         <BuyerSelector selected={buyer} onSelect={setBuyer} />
+        {context && (
+          <p className={`mt-2 text-sm ${overLimit ? "text-red-700 font-medium" : "text-slate-600"}`}>
+            Currently owes {money(context.outstanding)}
+            {context.creditLimit > 0 && ` · credit limit ${money(context.creditLimit)}`}
+            {overLimit && `. This bill takes them to ${money(duesAfter)}, over the limit.`}
+          </p>
+        )}
       </div>
 
       {/* ── Products Section ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <Package className="w-4 h-4 text-indigo-600" />
             Products / Services
           </h2>
@@ -1208,22 +1334,22 @@ export default function CreateInvoice() {
                 <th className="text-center text-xs font-semibold text-slate-500 px-2 py-3 w-8">
                   #
                 </th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-2 py-3 min-w-[150px]">
+                <th className="text-left text-xs font-semibold text-slate-500 px-2 py-3 min-w-[180px]">
                   Item Name
                 </th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-20">
+                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 min-w-[104px]">
                   HSN/SAC
                 </th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-20">
                   Unit
                 </th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-24">
+                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 min-w-[80px] w-20">
                   Qty
                 </th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-24">
                   Rate (₹)
                 </th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-14">
+                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 min-w-[76px]">
                   GST %
                 </th>
                 <th className="text-right text-xs font-semibold text-slate-500 px-2 py-3 w-24">
@@ -1333,12 +1459,26 @@ export default function CreateInvoice() {
                           className="w-full pl-4 pr-1 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
                         />
                       </div>
+                      {(() => {
+                        const last = context?.prices[item.name.trim().toLowerCase()];
+                        return last ? (
+                          <button
+                            type="button"
+                            title={`Charged on ${last.invoiceNumber}, ${shortDate(last.date)}. Click to use it.`}
+                            onClick={() => updateItem(idx, "rate", last.rate)}
+                            className="mt-1 block w-full text-right text-xs text-brand-700 hover:underline whitespace-nowrap"
+                          >
+                            Last {money(last.rate)}
+                          </button>
+                        ) : null;
+                      })()}
                     </td>
 
                     {/* GST % — clickable buttons */}
                     <td className="px-1.5 py-3">
                       <select
-                        value={item.gstPercent}
+                        value={billOfSupply ? 0 : item.gstPercent}
+                        disabled={billOfSupply}
                         onChange={(e) =>
                           updateItem(idx, "gstPercent", Number(e.target.value))
                         }
@@ -1427,10 +1567,7 @@ export default function CreateInvoice() {
         </div>
       </div>
 
-      {/* ── OPTIONAL FIELDS Header Divider ────────────────────────────────────── */}
-      <div className="bg-slate-100 border border-slate-200 rounded-xl py-3 px-5 font-bold text-slate-700 text-xs tracking-widest uppercase text-center my-6 shadow-sm">
-        Optional Fields
-      </div>
+      <h2 className="pt-2 text-sm font-semibold text-slate-600">Optional details</h2>
 
       {/* ── Transportation Details Card ────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
@@ -1439,9 +1576,9 @@ export default function CreateInvoice() {
           onClick={() => setShowTransportDetails(!showTransportDetails)}
           className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors text-left focus:outline-none"
         >
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <Truck className="w-4 h-4 text-indigo-600" />
-            Transportation Details
+            Transport and supply
           </h2>
           {showTransportDetails ? (
             <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -1451,10 +1588,14 @@ export default function CreateInvoice() {
         </button>
 
         {showTransportDetails && (
-          <div className="px-5 pb-5 pt-3 border-t border-slate-100 space-y-4 animate-fadeIn">
+          <div className="px-5 pb-5 pt-3 border-t border-slate-100 space-y-4">
+            <p className="text-xs text-slate-500">
+              The bill prints Challan No., Vehicle No., Date of Supply and Place of Supply. Other
+              transport fields are saved with the invoice only.
+            </p>
             {/* Transport Mode radios */}
             <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <label className="block text-xs font-semibold text-slate-500">
                 Transportation Mode
               </label>
               <div className="flex flex-wrap gap-4 items-center">
@@ -1482,7 +1623,19 @@ export default function CreateInvoice() {
             {/* Transportation inputs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Challan Number
+                </label>
+                <input
+                  type="text"
+                  value={challanNumber}
+                  onChange={(e) => setChallanNumber(e.target.value)}
+                  placeholder="Printed on the bill"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   LR Date
                 </label>
                 <input
@@ -1493,7 +1646,7 @@ export default function CreateInvoice() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   LR Number
                 </label>
                 <input
@@ -1505,7 +1658,7 @@ export default function CreateInvoice() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Date of Supply
                 </label>
                 <input
@@ -1516,7 +1669,7 @@ export default function CreateInvoice() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Place of Supply
                 </label>
                 <input
@@ -1528,20 +1681,7 @@ export default function CreateInvoice() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
-                  Select Supply Type
-                </label>
-                <select
-                  value={supplyType}
-                  onChange={(e) => setSupplyType(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value="intra_state">Intra State</option>
-                  <option value="inter_state">Inter State</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Vehicle Number
                 </label>
                 <input
@@ -1561,7 +1701,7 @@ export default function CreateInvoice() {
                 onClick={() => setShowTransporterFields(!showTransporterFields)}
                 className="w-full flex items-center justify-between bg-slate-50 px-4 py-2 hover:bg-slate-100 transition-colors text-left focus:outline-none"
               >
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
                   Transporter (Optional Field)
                 </span>
                 {showTransporterFields ? (
@@ -1574,7 +1714,7 @@ export default function CreateInvoice() {
               {showTransporterFields && (
                 <div className="p-4 bg-white border-t border-slate-150 grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
                       Transporter Name
                     </label>
                     <input
@@ -1586,7 +1726,7 @@ export default function CreateInvoice() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
                       Transporter ID
                     </label>
                     <input
@@ -1606,7 +1746,7 @@ export default function CreateInvoice() {
 
       {/* ── Print Copies Card ─────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
-        <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+        <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <FileText className="w-4 h-4 text-indigo-600" />
           Print Copies
         </h2>
@@ -1641,7 +1781,7 @@ export default function CreateInvoice() {
       {/* ── Bank Details Card ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-indigo-600" />
             Bank Details (Optional Field)
           </h2>
@@ -1676,7 +1816,7 @@ export default function CreateInvoice() {
         {isEditingBank ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
             <div>
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Bank Name</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Bank Name</label>
               <input
                 type="text"
                 value={bankName}
@@ -1686,7 +1826,7 @@ export default function CreateInvoice() {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Account Number</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Account Number</label>
               <input
                 type="text"
                 value={bankAccount}
@@ -1696,7 +1836,7 @@ export default function CreateInvoice() {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Account Holder Name</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Account Holder Name</label>
               <input
                 type="text"
                 value={bankHolderName}
@@ -1706,7 +1846,7 @@ export default function CreateInvoice() {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">IFSC Code</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">IFSC Code</label>
               <input
                 type="text"
                 value={bankIfsc}
@@ -1716,7 +1856,7 @@ export default function CreateInvoice() {
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Branch Name</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Branch Name</label>
               <input
                 type="text"
                 value={bankBranch}
@@ -1730,10 +1870,10 @@ export default function CreateInvoice() {
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600 space-y-2">
             <p className="font-bold text-slate-800 text-sm">{bankName || "—"}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <p><span className="font-semibold text-slate-400 uppercase text-[9px] mr-1">Account Number:</span> {bankAccount || "—"}</p>
-              <p><span className="font-semibold text-slate-400 uppercase text-[9px] mr-1">Account Holder Name:</span> {bankHolderName || "—"}</p>
-              <p><span className="font-semibold text-slate-400 uppercase text-[9px] mr-1">IFSC Code:</span> {bankIfsc || "—"}</p>
-              <p><span className="font-semibold text-slate-400 uppercase text-[9px] mr-1">Branch Name:</span> {bankBranch || "—"}</p>
+              <p><span className="font-semibold text-slate-500 mr-1">Account Number:</span> {bankAccount || "—"}</p>
+              <p><span className="font-semibold text-slate-500 mr-1">Account Holder Name:</span> {bankHolderName || "—"}</p>
+              <p><span className="font-semibold text-slate-500 mr-1">IFSC Code:</span> {bankIfsc || "—"}</p>
+              <p><span className="font-semibold text-slate-500 mr-1">Branch Name:</span> {bankBranch || "—"}</p>
             </div>
           </div>
         )}
@@ -1741,7 +1881,7 @@ export default function CreateInvoice() {
 
       {/* ── Signature Upload Card ──────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
-        <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+        <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <PenTool className="w-4 h-4 text-indigo-600" />
           Upload Signature (Optional)
         </h2>
@@ -1783,19 +1923,19 @@ export default function CreateInvoice() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Notes + Terms */}
         <div className="bg-white rounded-xl border border-slate-100 p-5 space-y-4">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-600" />
             Notes & Terms
           </h2>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">
-              Notes (visible on invoice)
+              Internal note (not printed)
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              placeholder="Any note for the buyer..."
+              placeholder="Kept with the invoice"
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
           </div>
@@ -1815,7 +1955,7 @@ export default function CreateInvoice() {
 
         {/* Amount summary */}
         <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
             <IndianRupee className="w-4 h-4 text-indigo-600" />
             Amount Summary
           </h2>
@@ -1864,7 +2004,7 @@ export default function CreateInvoice() {
 
             {/* Discount */}
             <div className="pt-2 border-t border-slate-100">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+              <p className="text-xs font-semibold text-slate-500 mb-2">
                 Discount
               </p>
               <div className="flex items-center gap-2">
@@ -1966,10 +2106,10 @@ export default function CreateInvoice() {
                     d="M4 12a8 8 0 018-8v8z"
                   />
                 </svg>
-                Creating Invoice...
+                Saving…
               </span>
             ) : (
-              "✓ Create Invoice"
+              `Save ${noun}`
             )}
           </button>
         </div>
@@ -1998,23 +2138,25 @@ export default function CreateInvoice() {
               const updated = [...items];
               updated[lastEmptyIdx] = {
                 ...updated[lastEmptyIdx],
+                item: newItem._id,
                 name: newItem.name,
                 hsn: newItem.hsn || "",
                 unit: newItem.unit || "pcs",
                 rate: newItem.price || 0,
-                gstPercent: newItem.gstPercent || 18,
+                gstPercent: newItem.gstPercent ?? 18,
               };
               setItems(updated);
             } else {
               setItems([
                 ...items,
                 {
+                  item: newItem._id,
                   name: newItem.name,
                   hsn: newItem.hsn || "",
                   unit: newItem.unit || "pcs",
                   quantity: 1,
                   rate: newItem.price || 0,
-                  gstPercent: newItem.gstPercent || 18,
+                  gstPercent: newItem.gstPercent ?? 18,
                   taxableAmount: 0,
                   cgstPercent: 0,
                   cgstAmount: 0,

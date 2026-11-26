@@ -10,17 +10,19 @@ A modern, robust, and feature-rich Goods and Services Tax (GST) Invoice Manageme
 - Secure User registration and login using JSON Web Tokens (JWT) and bcrypt password hashing.
 - Role-based capabilities and session persistence.
 
-### 2. **Dynamic Dashboard**
-- Real-time financial indicators: Total Sales, Total Purchases, Net GST Liability, and Outstanding Payments.
-- Visual breakdown of tax metrics (CGST, SGST, IGST collected/paid).
-- Quick statistics for buyers, items, and transactions.
+### 2. **Overview and Assistant**
+- Sales, money to collect, money to pay and a GST estimate, with a six-month chart and a list of what needs attention.
+- **Munshi**, a chat assistant: "Create invoice for Raj Traders with Laptop of Rs.25,000 + tax", "What is my current stock value?", "Who owes me money?".
+- It only prepares drafts. A bill, quotation, payment, expense, buyer or product is saved when you press the button on the card.
+- Works without any AI key using built-in commands (English and some Hinglish). With `ANTHROPIC_API_KEY` set, Claude answers and understands free-form requests.
+- A public home page at `/` for visitors who are not signed in.
 
 ### 3. **GST-Compliant Invoicing**
 - Dynamic tax calculation engine:
   - Automatically splits tax into **CGST + SGST** if the Buyer is in the same state as the Seller/Supplier.
   - Applies **IGST** if the Buyer is in a different state.
 - Supports HSN/SAC codes, discount structures, and custom GST rates (e.g., 5%, 12%, 18%, 28%).
-- Generates professional PDF invoices on the fly using `jspdf` and `jspdf-autotable`.
+- Generates the PDF tax invoice in the browser with `jspdf`. The printed format is defined in `client/src/lib/invoiceLayout.js`.
 
 ### 4. **Purchase & Input Tax Credit (ITC) Tracking**
 - Record business purchases from suppliers/sellers.
@@ -78,6 +80,16 @@ gst-invoice-app/
 
 ---
 
+### 7. **Day-to-day business tools**
+- **Quotations** on the same printed format, converted to an invoice in one click.
+- **Edit and duplicate** invoices; **sales returns** as credit notes.
+- **Party statements** with PDF and CSV, opening balances, credit limits, and one receipt spread over the oldest bills.
+- **Stock** worked out from opening count, purchases, sales, returns and adjustments, with low-stock warnings.
+- **Expenses**, an estimated **profit** report, **day book**, and **GSTR-1 / GSTR-3B working sheets** (not a filed return).
+- **CSV import** of buyers and products, full JSON **backup**, quick search with Ctrl+K.
+
+---
+
 ## ⚙️ Installation & Setup
 
 ### Prerequisites
@@ -112,26 +124,22 @@ MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_strong_secret_key
 JWT_EXPIRES_IN=7d
 
-# Default Supplier/Seller Details (Fallback/Default Values)
-SUPPLIER_NAME=Your Business Name
-SUPPLIER_GSTIN=22AAAAA0000A1Z5
-SUPPLIER_ADDRESS=123, Main Street
-SUPPLIER_CITY=New Delhi
-SUPPLIER_STATE=Delhi
-SUPPLIER_PINCODE=110001
-SUPPLIER_PHONE=9999999999
-SUPPLIER_EMAIL=you@yourbusiness.com
-SUPPLIER_BANK_NAME=State Bank of India
-SUPPLIER_BANK_ACCOUNT=123456789012
-SUPPLIER_BANK_IFSC=SBIN0001234
-SUPPLIER_BANK_BRANCH=Connaught Place
-SUPPLIER_STATE_CODE=07
-
 # Razorpay API Credentials
 RAZORPAY_KEY_ID=rzp_test_yourKeyId
 RAZORPAY_KEY_SECRET=yourSecretKey
 RAZORPAY_WEBHOOK_SECRET=yourWebhookSecretString
+
+# Assistant (optional). Leave the key blank to use the built-in commands.
+# With a key, questions are answered by Claude (a paid API).
+ANTHROPIC_API_KEY=
+ASSISTANT_MODEL=claude-opus-5-5
+ASSISTANT_DAILY_LIMIT=60
+
+# Frontend address allowed to call the API in production
+CLIENT_URL=
 ```
+
+Business details (name, GSTIN, bank account, logo, signature, invoice number prefix) are set by each user on the Settings page.
 
 Start the backend server:
 ```bash
@@ -177,13 +185,29 @@ The frontend application will spin up at [http://localhost:5173](http://localhos
 - `POST /api/invoices` — Create a new invoice (checks active plan limits)
 - `GET /api/invoices/:id` — View detailed invoice record
 - `PUT /api/invoices/:id` — Modify an existing invoice
-- `DELETE /api/invoices/:id` — Remove an invoice record
-- `POST /api/invoices/:id/payments` — Record payment collections
+- `PUT /api/invoices/:id/status` — Change payment status or cancel
+- `POST /api/invoices/:id/payment` — Record payment collections
 
 ### Purchases
 - `GET /api/purchases` — View purchase bills (input records)
 - `POST /api/purchases` — Record a new purchase entry
 - `DELETE /api/purchases/:id` — Delete a purchase entry
+
+### Overview & Assistant
+- `GET /api/insights` — Dues, GST estimate and items needing attention
+- `GET /api/assistant/status` — Which engine is active (`basic` or `claude`)
+- `POST /api/assistant/chat` — Streams replies and result cards about the signed-in user's business
+- `POST /api/assistant/confirm` — Saves a draft the user approved (plan limits apply)
+
+### Sales, stock and reports
+- `GET/POST /api/quotations`, `PUT/DELETE /api/quotations/:id`, `POST /api/quotations/:id/convert`
+- `GET/POST /api/credit-notes`, `DELETE /api/credit-notes/:id`
+- `GET /api/stock`, `GET /api/stock/:itemId/history`, `POST /api/stock/adjust`
+- `GET/POST /api/expenses`, `PUT/DELETE /api/expenses/:id`
+- `GET /api/ledger/buyer/:id`, `POST /api/ledger/buyer/:id/receive`, `GET /api/ledger/seller/:id`
+- `GET /api/reports/summary|gst|daybook?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /api/data/export`, `POST /api/data/import/buyers|items`, `GET /api/data/search?q=`
+- `PUT /api/auth/password`
 
 ### Buyers & Items
 - `GET/POST /api/buyers` — List or create buyers
@@ -194,7 +218,7 @@ The frontend application will spin up at [http://localhost:5173](http://localhos
 ### Subscriptions
 - `GET /api/subscriptions/plans` — Fetch active billing tiers
 - `POST /api/subscriptions/create-order` — Create Razorpay order for billing
-- `POST /api/subscriptions/verify` — Verify signature and activate plan status
+- `POST /api/subscriptions/verify-payment` — Verify signature and activate plan status
 - `POST /api/subscriptions/webhook` — Razorpay webhook receiver to sync subscriptions asynchronously
 
 ---

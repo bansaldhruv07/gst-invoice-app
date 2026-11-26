@@ -3,12 +3,15 @@ const router = express.Router();
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+// Stored emails are lower-case, so lookups must be too
+const normaliseEmail = (email) => String(email).trim().toLowerCase();
+
 // ─── Helper: generate JWT token ───────────────────────────────────────────────
 const generateToken = (userId) => {
   return jwt.sign(
     { id: userId },                         // payload stored inside token
     process.env.JWT_SECRET,                 // secret key to sign with
-    { expiresIn: process.env.JWT_EXPIRES_IN } // token expiry (e.g. "7d")
+    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" } // token expiry
   );
 };
 
@@ -27,7 +30,7 @@ router.post("/register", async (req, res) => {
     }
 
     // Check if email already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normaliseEmail(email) });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -71,7 +74,7 @@ router.post("/login", async (req, res) => {
     }
 
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normaliseEmail(email) });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -122,75 +125,91 @@ router.get("/me", protect, async (req, res) => {
   });
 });
 
+router.put("/password", protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (String(newPassword || "").length < 6) {
+      return res.status(400).json({ success: false, message: "The new password needs at least 6 characters" });
+    }
+    const user = await User.findById(req.user._id);
+    // 400, not 401: a wrong current password must not sign the user out
+    if (!(await user.comparePassword(String(currentPassword || "")))) {
+      return res.status(400).json({ success: false, message: "The current password is not correct" });
+    }
+    user.password = String(newPassword);
+    await user.save();
+    res.json({ success: true, message: "Password changed" });
+  } catch (err) {
+    console.error("Password change error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// ─── Business profile ────────────────────────────────────────────────────────
+// API field name -> User field name
+const PROFILE_FIELDS = {
+  name: "supplierName",
+  gstin: "supplierGstin",
+  pan: "supplierPan",
+  address: "supplierAddress",
+  city: "supplierCity",
+  state: "supplierState",
+  pincode: "supplierPincode",
+  phone: "supplierPhone",
+  email: "supplierEmail",
+  bankName: "supplierBankName",
+  bankAccount: "supplierBankAccount",
+  bankIfsc: "supplierBankIfsc",
+  bankBranch: "supplierBankBranch",
+  stateCode: "supplierStateCode",
+  logoUrl: "logoUrl",
+  signatureUrl: "supplierSignatureUrl",
+  invoicePrefix: "invoicePrefix",
+  invoiceStartNumber: "invoiceStartNumber",
+  defaultTerms: "defaultTerms",
+};
+
+// Each business sees only its own details; there are no server-wide defaults.
+const toProfile = (user) =>
+  Object.fromEntries(
+    Object.entries(PROFILE_FIELDS).map(([key, field]) => [key, user[field] ?? ""]),
+  );
+
 router.get("/supplier-info", protect, (req, res) => {
-  res.json({
-    success: true,
-    supplier: {
-      name:        req.user.supplierName        || process.env.SUPPLIER_NAME        || "Your Business Name",
-      gstin:       req.user.supplierGstin       || process.env.SUPPLIER_GSTIN       || "",
-      address:     req.user.supplierAddress     || process.env.SUPPLIER_ADDRESS     || "",
-      city:        req.user.supplierCity        || process.env.SUPPLIER_CITY        || "",
-      state:       req.user.supplierState       || process.env.SUPPLIER_STATE       || "",
-      pincode:     req.user.supplierPincode     || process.env.SUPPLIER_PINCODE     || "",
-      phone:       req.user.supplierPhone       || process.env.SUPPLIER_PHONE       || "",
-      email:       req.user.supplierEmail       || process.env.SUPPLIER_EMAIL       || "",
-      bankName:    req.user.supplierBankName    || process.env.SUPPLIER_BANK_NAME   || "",
-      bankAccount: req.user.supplierBankAccount || process.env.SUPPLIER_BANK_ACCOUNT|| "",
-      bankIfsc:    req.user.supplierBankIfsc    || process.env.SUPPLIER_BANK_IFSC   || "",
-      bankBranch:  req.user.supplierBankBranch  || process.env.SUPPLIER_BANK_BRANCH || "",
-      stateCode:   req.user.supplierStateCode   || process.env.SUPPLIER_STATE_CODE  || "07",
-      logoUrl:     req.user.logoUrl             || process.env.SUPPLIER_LOGO_URL    || "",
-    },
-  });
+  res.json({ success: true, supplier: toProfile(req.user) });
 });
 
 router.put("/supplier-info", protect, async (req, res) => {
   try {
-    const User = require("../models/User");
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    user.supplierName = req.body.name || "";
-    user.supplierGstin = req.body.gstin || "";
-    user.supplierAddress = req.body.address || "";
-    user.supplierCity = req.body.city || "";
-    user.supplierState = req.body.state || "";
-    user.supplierPincode = req.body.pincode || "";
-    user.supplierPhone = req.body.phone || "";
-    user.supplierEmail = req.body.email || "";
-    user.supplierBankName = req.body.bankName || "";
-    user.supplierBankAccount = req.body.bankAccount || "";
-    user.supplierBankIfsc = req.body.bankIfsc || "";
-    user.supplierBankBranch = req.body.bankBranch || "";
-    user.supplierStateCode = req.body.stateCode || "07";
-    user.logoUrl = req.body.logoUrl || "";
+    // Only fields present in the request are changed
+    for (const [key, field] of Object.entries(PROFILE_FIELDS)) {
+      if (req.body[key] === undefined) continue;
+      user[field] = req.body[key];
+    }
+    if (user.invoicePrefix && !/^[A-Z0-9-]{1,5}$/.test(user.invoicePrefix)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invoice prefix can use up to 5 letters, numbers or hyphens",
+      });
+    }
+    if (!user.invoiceStartNumber) user.invoiceStartNumber = 1;
+    if (!user.supplierStateCode) user.supplierStateCode = "07";
 
     await user.save();
 
     res.json({
       success: true,
       message: "Business details updated successfully",
-      supplier: {
-        name: user.supplierName,
-        gstin: user.supplierGstin,
-        address: user.supplierAddress,
-        city: user.supplierCity,
-        state: user.supplierState,
-        pincode: user.supplierPincode,
-        phone: user.supplierPhone,
-        email: user.supplierEmail,
-        bankName: user.supplierBankName,
-        bankAccount: user.supplierBankAccount,
-        bankIfsc: user.supplierBankIfsc,
-        bankBranch: user.supplierBankBranch,
-        stateCode: user.supplierStateCode,
-        logoUrl: user.logoUrl,
-      }
+      supplier: toProfile(user),
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    const status = err.name === "ValidationError" ? 400 : 500;
+    res.status(status).json({ success: false, message: err.message });
   }
 });
 

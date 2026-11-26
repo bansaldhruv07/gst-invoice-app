@@ -12,7 +12,7 @@ const invoiceItemSchema = new mongoose.Schema({
   hsn:         { type: String, default: "" },
   unit:        { type: String, default: "pcs" },
   quantity:    { type: Number, required: true, min: 0 },
-  rate:        { type: Number, required: true, min: 0 }, // price per unit (excl. GST)
+  rate:        { type: Number, required: true, min: 0 }, // price per unit as entered
   gstPercent:  { type: Number, default: 18 },
 
   // Calculated fields (stored so PDF doesn't need to recalculate)
@@ -123,6 +123,7 @@ const invoiceSchema = new mongoose.Schema(
       default: "unpaid",
     },
     paidAmount:    { type: Number, default: 0 }, // sum of all payments
+    creditedAmount: { type: Number, default: 0 }, // sum of credit notes
     balanceAmount: { type: Number, default: 0 }, // grandTotal - paidAmount
     paymentHistory: [paymentSchema],
 
@@ -139,7 +140,8 @@ const invoiceSchema = new mongoose.Schema(
 
     // ── Optional fields ───────────────────────────────────────────────────────
     notes:  { type: String, default: "" },
-    terms:  { type: String, default: "Payment due within 30 days." },
+    terms:  { type: String, default: "" },
+    challanNumber: { type: String, default: "" },
 
     // ── Transportation Details ────────────────────────────────────────────────
     transportMode:   { type: String, default: "none" },

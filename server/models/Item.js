@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const UNITS = require("../services/units");
+const { GST_RATES } = require("../services/gst");
+const { istDate } = require("../services/common");
 
 const itemSchema = new mongoose.Schema(
   {
@@ -26,7 +29,7 @@ const itemSchema = new mongoose.Schema(
       trim: true,
       default: "pcs",
       enum: {
-        values: ["pcs", "kg", "ltr", "mtr", "box", "hrs", "nos", "set", "pair", "dozen", "other"],
+        values: UNITS,
         message: "Invalid unit type",
       },
     },
@@ -43,10 +46,19 @@ const itemSchema = new mongoose.Schema(
       required: [true, "GST percent is required"],
       default: 18,
       enum: {
-        values: [0, 5, 12, 18, 28],
-        message: "GST percent must be 0, 5, 12, 18, or 28",
+        values: GST_RATES,
+        message: "That GST rate is not supported",
       },
     },
+    // What the item costs to buy (excl. GST); used for profit and stock value
+    purchasePrice: { type: Number, default: 0, min: 0 },
+    // Stock is worked out from this opening count plus later purchases, sales,
+    // returns and adjustments
+    trackStock: { type: Boolean, default: false },
+    openingStock: { type: Number, default: 0 },
+    stockSince: { type: Date, default: null },
+    lowStockAt: { type: Number, default: 0, min: 0 },
+
     // Optional description for the item
     description: {
       type: String,
@@ -58,5 +70,13 @@ const itemSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Stock counting starts today unless another date is given
+itemSchema.pre("save", function (next) {
+  if (this.trackStock && !this.stockSince) {
+    this.stockSince = new Date(istDate(Date.now()));
+  }
+  next();
+});
 
 module.exports = mongoose.model("Item", itemSchema);

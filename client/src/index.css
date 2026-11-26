@@ -1,3 +1,210 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  button:not(:disabled),
+  select {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid theme("colors.brand.500");
+    outline-offset: 2px;
+  }
+  input,
+  select,
+  textarea {
+    accent-color: theme("colors.brand.600");
+  }
+  ::selection {
+    background: theme("colors.brand.200");
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white border border-slate-200 rounded-xl shadow-sm;
+  }
+  .card-lift {
+    @apply transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:border-brand-200;
+  }
+  .card-head {
+    @apply flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-150;
+  }
+  .card-title {
+    @apply text-[15px] font-bold text-slate-800;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg text-sm font-semibold whitespace-nowrap transition duration-200 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-0;
+  }
+  .btn-primary {
+    @apply btn text-white bg-brand-600 shadow-glow hover:bg-brand-700 hover:-translate-y-px;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-slate-700 border border-slate-200 shadow-sm hover:border-brand-300 hover:text-brand-700 hover:bg-brand-50;
+  }
+  .btn-sm {
+    @apply h-8 px-3 text-xs rounded-md;
+  }
+
+  .label {
+    @apply block text-xs font-semibold text-slate-600 mb-1.5;
+  }
+  .input {
+    @apply w-full h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 shadow-sm transition placeholder:text-slate-400 hover:border-slate-300 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100;
+  }
+  textarea.input {
+    @apply h-auto py-2;
+  }
+
+  .th {
+    @apply text-left text-xs font-semibold text-slate-500 px-2.5 sm:px-4 py-3 bg-slate-50 border-b border-slate-150 whitespace-nowrap;
+  }
+  .td {
+    @apply px-2.5 sm:px-4 py-3.5 text-sm text-slate-700 border-b border-slate-100 transition-colors;
+  }
+  tbody tr:hover > .td {
+    @apply bg-brand-50;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold border capitalize;
+  }
+
+  /* Children appear one after another */
+  .stagger > * {
+    @apply animate-rise;
+  }
+  .stagger > :nth-child(2) {
+    animation-delay: 60ms;
+  }
+  .stagger > :nth-child(3) {
+    animation-delay: 120ms;
+  }
+  .stagger > :nth-child(4) {
+    animation-delay: 180ms;
+  }
+  .stagger > :nth-child(5) {
+    animation-delay: 240ms;
+  }
+  .stagger > :nth-child(n + 6) {
+    animation-delay: 300ms;
+  }
+
+  /* Faint ruled lines, like a ledger page */
+  .ledger-lines {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 31px,
+      rgb(40 86 240 / 0.07) 31px,
+      rgb(40 86 240 / 0.07) 32px
+    );
+    mask-image: linear-gradient(to bottom, transparent, black 25%, black 70%, transparent);
+  }
+
+  /* Sections that appear when scrolled into view */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.7s ease,
+      transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Feature tour */
+  .animate-progress {
+    transform-origin: left;
+    animation-name: progress;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+  }
+  .animate-stamp {
+    animation: stamp 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.4) backwards;
+  }
+  .animate-slide-in {
+    animation: slide-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+  .caret {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 1px;
+    vertical-align: text-bottom;
+    background: currentColor;
+    animation: caret 0.8s steps(1) infinite;
+  }
+  .dot-grid {
+    background-image: radial-gradient(rgb(255 255 255 / 0.16) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+  }
+
+  .skeleton {
+    @apply rounded-lg bg-slate-150 animate-pulse;
+  }
+}
+
+@keyframes progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes stamp {
+  from {
+    opacity: 0;
+    transform: scale(2.4) rotate(-28deg);
+  }
+}
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "GST Invoice",
+  "short_name": "GST Invoice",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f6f8fd",
+  "theme_color": "#2856f0",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

@@ -1,3 +1,4 @@
+import { UNITS, GST_RATES } from "../lib/units";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
@@ -8,8 +9,6 @@ import {
   Package, Calendar, AlertCircle, User,
 } from "lucide-react";
 
-const GST_RATES  = [0, 5, 12, 18, 28];
-const UNITS      = ["pcs","kg","ltr","mtr","box","hrs","nos","set","pair","dozen","other"];
 const EMPTY_ITEM = {
   name:"", hsn:"", unit:"pcs", quantity:1, rate:"", gstPercent:18,
   taxableAmount:0, cgstPercent:0, cgstAmount:0,
@@ -91,7 +90,7 @@ function QuickAddSellerModal({ onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="!m-0 fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -107,24 +106,24 @@ function QuickAddSellerModal({ onClose, onSave }) {
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 font-sans">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Seller Name *</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Seller Name *</label>
             <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bansal Steels" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">GSTIN</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">GSTIN</label>
               <input type="text" value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="e.g. 07AAAAA0000A1Z1" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Mobile / Phone</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Mobile / Phone</label>
               <input type="text" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="e.g. 9876543210" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">State</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">State</label>
               <select value={state} onChange={(e) => setState(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="">Select State</option>
                 {STATES.map((s) => (
@@ -133,23 +132,23 @@ function QuickAddSellerModal({ onClose, onSave }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">City</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">City</label>
               <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Delhi" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Address</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Address</label>
             <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street Address" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Pincode</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Pincode</label>
               <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="e.g. 110001" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Email</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g. email@seller.com" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
@@ -202,7 +201,7 @@ function QuickAddItemModal({ onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="!m-0 fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -218,17 +217,17 @@ function QuickAddItemModal({ onClose, onSave }) {
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 font-sans">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Item Name *</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Item Name *</label>
             <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 12mm Steel Rod" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Rate / Price (Excl. GST) *</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Rate / Price (Excl. GST) *</label>
               <input type="number" required min="0.01" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">GST Rate (%)</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">GST Rate (%)</label>
               <select value={gstPercent} onChange={(e) => setGstPercent(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                 {GST_RATES.map((r) => (
                   <option key={r} value={r}>{r}%</option>
@@ -239,7 +238,7 @@ function QuickAddItemModal({ onClose, onSave }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Unit</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">Unit</label>
               <select value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white uppercase">
                 {UNITS.map((u) => (
                   <option key={u} value={u}>{u.toUpperCase()}</option>
@@ -247,7 +246,7 @@ function QuickAddItemModal({ onClose, onSave }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">HSN Code</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">HSN Code</label>
               <input type="text" value={hsn} onChange={(e) => setHsn(e.target.value)} placeholder="e.g. 7214" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
             </div>
           </div>
@@ -423,11 +422,11 @@ function ItemNameCell({ value, onSelect }) {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="!m-0 fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-150 overflow-hidden flex flex-col max-h-[85vh] animate-scaleIn">
             {/* Header */}
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                 <Search className="w-4 h-4 text-indigo-600" />
                 Select Product / Service
               </h3>
@@ -580,7 +579,7 @@ export default function CreatePurchase() {
   const totalCgst     = calcItems.reduce((s,i) => s+i.cgstAmount,    0);
   const totalSgst     = calcItems.reduce((s,i) => s+i.sgstAmount,    0);
   const totalIgst     = calcItems.reduce((s,i) => s+i.igstAmount,    0);
-  const totalTax      = totalCgst+totalSgst+totalIgst;
+  const totalTax      = calcItems.reduce((s,i)=>s+Math.round((i.totalAmount-i.taxableAmount)*100)/100,0);
   const discountAmt   = discountType==="percent"
     ? (subTotal*parseFloat(discountValue||0))/100
     : parseFloat(discountValue||0);
@@ -642,17 +641,17 @@ export default function CreatePurchase() {
         <button onClick={handleSubmit} disabled={loading}
           className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg text-sm font-semibold shadow-sm"
         >
-          {loading ? "Creating..." : "Submit"}
+          {loading ? "Saving…" : "Save purchase"}
         </button>
       </div>
 
       {/* ── Purchase Type + Dates ────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
 
           {/* Invoice type */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-500 mb-2">
               Invoice Type
             </label>
             <div className="flex rounded-lg border border-slate-200 overflow-hidden">
@@ -674,7 +673,7 @@ export default function CreatePurchase() {
 
           {/* Tax mode */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-500 mb-2">
               Tax Mode
             </label>
             <div className="flex rounded-lg border border-slate-200 overflow-hidden">
@@ -696,7 +695,7 @@ export default function CreatePurchase() {
 
           {/* Purchase date */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-500 mb-2">
               Purchase Date
             </label>
             <div className="relative">
@@ -710,7 +709,7 @@ export default function CreatePurchase() {
 
           {/* Seller's invoice number */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-500 mb-2">
               Seller's Invoice No.
             </label>
             <input type="text" value={sellerInvoiceNo}
@@ -725,7 +724,7 @@ export default function CreatePurchase() {
       {/* ── Seller Details ───────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <Building2 className="w-4 h-4 text-indigo-600" />
             Seller Details
           </h2>
@@ -755,7 +754,7 @@ export default function CreatePurchase() {
         <p className="text-xs text-slate-400 mt-2">
           Don't see your seller?{" "}
           <a href="/sellers" className="text-indigo-600 hover:underline font-medium">
-            Add seller in Masters
+            Add one on the Sellers page
           </a>
         </p>
       </div>
@@ -763,7 +762,7 @@ export default function CreatePurchase() {
       {/* ── Products ────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <Package className="w-4 h-4 text-indigo-600" />
             Products
           </h2>
@@ -783,11 +782,11 @@ export default function CreatePurchase() {
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="text-center text-xs font-semibold text-slate-500 px-2 py-3 w-8">#</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-2 py-3 min-w-[150px]">Item Name</th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-20">HSN</th>
+                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 min-w-[104px]">HSN/SAC</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-20">Unit</th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-24">Qty</th>
+                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-20 min-w-[80px]">Qty</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-24">Rate (₹)</th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 w-14">GST%</th>
+                <th className="text-left text-xs font-semibold text-slate-500 px-1.5 py-3 min-w-[76px]">GST %</th>
                 <th className="text-right text-xs font-semibold text-slate-500 px-2 py-3 w-24">Taxable</th>
                 {taxType==="cgst_sgst" ? (
                   <>
@@ -940,7 +939,7 @@ export default function CreatePurchase() {
 
         {/* Notes + Terms */}
         <div className="bg-white rounded-xl border border-slate-100 p-5 space-y-4">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-600" />
             Notes & Terms
           </h2>
@@ -962,7 +961,7 @@ export default function CreatePurchase() {
 
         {/* Amount summary */}
         <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
             <IndianRupee className="w-4 h-4 text-indigo-600" />
             Amount Summary
           </h2>
@@ -995,7 +994,7 @@ export default function CreatePurchase() {
 
             {/* Discount */}
             <div className="pt-2 border-t border-slate-100">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Discount</p>
+              <p className="text-xs font-semibold text-slate-500 mb-2">Discount</p>
               <div className="flex items-center gap-2">
                 <div className="flex rounded-lg border border-slate-200 overflow-hidden">
                   {[{value:"amount",label:"₹"},{value:"percent",label:"%"}].map((opt) => (
@@ -1042,7 +1041,7 @@ export default function CreatePurchase() {
           <button type="button" onClick={handleSubmit} disabled={loading}
             className="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-lg text-sm shadow-sm"
           >
-            {loading ? "Creating..." : "✓ Create Purchase"}
+            {loading ? "Creating..." : "Create purchase"}
           </button>
         </div>
       </div>

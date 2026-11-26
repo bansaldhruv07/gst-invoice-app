@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { stateCodeFor } = require("../services/states");
 
 const sellerSchema = new mongoose.Schema(
   {
@@ -15,6 +16,8 @@ const sellerSchema = new mongoose.Schema(
     state:   { type: String, default: "" },
     pincode: { type: String, default: "" },
     mobile:  { type: String, default: "" },
+    // What the business already owed this seller when they were added here
+    openingBalance: { type: Number, default: 0, min: 0 },
     email:   { type: String, default: "", lowercase: true },
   },
   { timestamps: true }
@@ -24,6 +27,8 @@ const sellerSchema = new mongoose.Schema(
 sellerSchema.pre("save", function (next) {
   if (this.gstin && this.gstin.length >= 2) {
     this.stateCode = this.gstin.substring(0, 2);
+  } else if (this.isModified("state") || this.isModified("gstin")) {
+    this.stateCode = stateCodeFor(this.state);
   }
   next();
 });
