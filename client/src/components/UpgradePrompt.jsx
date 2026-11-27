@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Lock, ArrowRight } from "lucide-react";
 
-export default function UpgradePrompt({ message, feature, onClose }) {
+export default function UpgradePrompt({ message, onClose }) {
   const navigate = useNavigate();
 
   return (

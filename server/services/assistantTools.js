@@ -11,6 +11,7 @@ const { outstandingOf } = require("./ledger");
 const { computeTotals, taxTypeFor, GST_RATES } = require("./gst");
 const { saveDraft } = require("./assistantActions");
 const { stateCodeFor, GST_STATES } = require("./states");
+const { canUseTool, roleOf } = require("./permissions");
 const UNITS = require("./units");
 const { round2, istDate, normaliseName, BadRequest } = require("./common");
 
@@ -495,12 +496,18 @@ const definitions = [
 
 // Model-supplied input is untrusted: check it is an object with the required keys
 async function runTool(user, name, input) {
+  if (!canUseTool(roleOf(user), name)) {
+    throw new BadRequest("Your login does not have access to that. Ask the business owner.");
+  }
   const definition = definitions.find((d) => d.name === name);
   if (!definition) throw new BadRequest("Unknown tool");
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new BadRequest("The tool input was not valid");
   const missing = definition.input_schema.required.filter((k) => input[k] === undefined || input[k] === "");
   if (missing.length) throw new BadRequest(`Missing: ${missing.join(", ")}`);
-  return handlers[name](user, input);
+  const result = await handlers[name](user, input);
+  // Staff cannot open the reports screen, so do not offer a link to it
+  if (roleOf(user) === "staff" && result.card?.link?.to.startsWith("/reports")) delete result.card.link;
+  return result;
 }
 
 const STATUS = {

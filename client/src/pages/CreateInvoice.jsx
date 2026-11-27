@@ -18,7 +18,6 @@ import {
   User,
   Package,
   Calendar,
-  Tag,
   AlertCircle,
   Truck,
 } from "lucide-react";
@@ -27,6 +26,7 @@ import { UNITS, GST_RATES } from "../lib/units";
 import { money, shortDate } from "../lib/format";
 import { Spinner } from "../components/ui";
 import { defaultTerms } from "../lib/terms";
+import { useCan } from "../context/AuthContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EMPTY_ITEM = {
@@ -684,6 +684,7 @@ export default function CreateInvoice() {
 }
 
 function InvoiceForm({ editId }) {
+  const canEditBusiness = useCan()("settings");
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [params] = useSearchParams();
@@ -1162,13 +1163,15 @@ function InvoiceForm({ editId }) {
               <label className="text-xs font-bold text-slate-500">
                 Seller Details (Bill Only)
               </label>
-              <button
-                type="button"
-                onClick={() => setEditSupplier(!editSupplier)}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-              >
-                {editSupplier ? "Done" : "Edit Details"}
-              </button>
+              {canEditBusiness && (
+                <button
+                  type="button"
+                  onClick={() => setEditSupplier(!editSupplier)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                >
+                  {editSupplier ? "Done" : "Edit Details"}
+                </button>
+              )}
             </div>
 
             {editSupplier ? (
@@ -1803,13 +1806,15 @@ function InvoiceForm({ editId }) {
               Use Default Bank
             </button>
             <span className="text-slate-300">|</span>
-            <button
-              type="button"
-              onClick={() => setIsEditingBank(!isEditingBank)}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-            >
-              {isEditingBank ? "Done" : "Edit Bank Details"}
-            </button>
+            {canEditBusiness && (
+              <button
+                type="button"
+                onClick={() => setIsEditingBank(!isEditingBank)}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+              >
+                {isEditingBank ? "Done" : "Edit Bank Details"}
+              </button>
+            )}
           </div>
         </div>
 

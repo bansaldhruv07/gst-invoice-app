@@ -10,6 +10,8 @@ import { amountInWords } from "../lib/amountInWords";
 import { money, shortDate, whatsappReminder } from "../lib/format";
 import PaymentModal from "../components/PaymentModal";
 import { Spinner, statusStyle } from "../components/ui";
+import UpiPay from "../components/UpiPay";
+import { useCan } from "../context/AuthContext";
 
 const MODE_LABELS = {
   upi: "UPI",
@@ -44,6 +46,7 @@ export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { business } = useBusiness();
+  const can = useCan();
 
   const [invoice, setInvoice] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
@@ -171,6 +174,7 @@ export default function InvoiceDetail() {
         <select
           aria-label="Status"
           value={invoice.status}
+          disabled={!can("editInvoice")}
           onChange={(e) => changeStatus(e.target.value)}
           className={`badge h-9 px-3 pr-8 text-sm ${statusStyle(invoice.status)}`}
         >
@@ -184,7 +188,7 @@ export default function InvoiceDetail() {
             <MessageCircle className="w-4 h-4" /> Send reminder
           </a>
         )}
-        {canPay && (
+        {canPay && can("recordPayment") && (
           <button onClick={() => setShowPayment(true)} className="btn-secondary">
             <IndianRupee className="w-4 h-4" /> Record payment
           </button>
@@ -195,15 +199,17 @@ export default function InvoiceDetail() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {!cancelled && creditNotes.length === 0 && (
+        {!cancelled && creditNotes.length === 0 && can("editInvoice") && (
           <Link to={`/invoices/${invoice._id}/edit`} className="btn-secondary btn-sm">
             <Pencil className="w-3.5 h-3.5" /> Edit
           </Link>
         )}
-        <Link to={`/invoices/create?from=${invoice._id}`} className="btn-secondary btn-sm">
-          <Copy className="w-3.5 h-3.5" /> Duplicate
-        </Link>
-        {canReturn && (
+        {can("createInvoice") && (
+          <Link to={`/invoices/create?from=${invoice._id}`} className="btn-secondary btn-sm">
+            <Copy className="w-3.5 h-3.5" /> Duplicate
+          </Link>
+        )}
+        {canReturn && can("returns") && (
           <button onClick={() => setShowReturn(true)} className="btn-secondary btn-sm">
             <Undo2 className="w-3.5 h-3.5" /> Sales return
           </button>
@@ -235,6 +241,8 @@ export default function InvoiceDetail() {
           </div>
         ))}
       </section>
+
+      {!cancelled && <UpiPay invoice={invoice} business={business} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Facts
@@ -362,9 +370,11 @@ export default function InvoiceDetail() {
                 <button onClick={() => downloadNote(n)} aria-label={`Download ${n.number}`} className="btn-secondary btn-sm">
                   <Download className="w-3.5 h-3.5" />
                 </button>
+                {can("returns") && (
                 <button onClick={() => deleteNote(n)} aria-label={`Delete ${n.number}`} className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
+                )}
               </li>
             ))}
           </ul>

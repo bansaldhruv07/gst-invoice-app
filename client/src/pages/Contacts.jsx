@@ -9,6 +9,7 @@ import UpgradePrompt from "../components/UpgradePrompt";
 import { Spinner, EmptyState } from "../components/ui";
 import { STATE_OPTIONS, GST_STATES } from "../lib/states";
 import { money } from "../lib/format";
+import { useCan } from "../context/AuthContext";
 
 const EMPTY = {
   name: "", gstin: "", address: "", city: "", state: "", pincode: "", mobile: "", email: "",
@@ -99,6 +100,7 @@ function ContactForm({ kind, contact, onClose, onSaved, onLimit }) {
 }
 
 export default function Contacts({ kind }) {
+  const can = useCan();
   const isBuyer = kind === "buyers";
   const noun = isBuyer ? "buyer" : "seller";
   const navigate = useNavigate();
@@ -143,10 +145,12 @@ export default function Contacts({ kind }) {
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${kind} by name`} aria-label={`Search ${kind}`} className="input pl-9" />
           </div>
-          {isBuyer && (
+          {isBuyer && can("import") && (
             <Link to="/settings#import" className="btn-secondary"><Upload className="w-4 h-4" /> Import</Link>
           )}
-          <button onClick={() => setEditing({})} className="btn-primary"><Plus className="w-4 h-4" /> Add {noun}</button>
+          {can(kind === "buyers" ? "addBuyer" : "editSellers") && (
+            <button onClick={() => setEditing({})} className="btn-primary"><Plus className="w-4 h-4" /> Add {noun}</button>
+          )}
         </div>
 
         {list === null ? (
@@ -179,12 +183,16 @@ export default function Contacts({ kind }) {
                     <td className="td text-right whitespace-nowrap">{c.openingBalance ? money(c.openingBalance) : "—"}</td>
                     <td className="td" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => setEditing(c)} title="Edit" aria-label={`Edit ${c.name}`} className="btn btn-sm text-slate-600 hover:bg-slate-100">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => remove(c)} title="Delete" aria-label={`Delete ${c.name}`} className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {can(kind === "buyers" ? "editBuyer" : "editSellers") && (
+                          <button onClick={() => setEditing(c)} title="Edit" aria-label={`Edit ${c.name}`} className="btn btn-sm text-slate-600 hover:bg-slate-100">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {can(kind === "buyers" ? "deleteBuyer" : "editSellers") && (
+                          <button onClick={() => remove(c)} title="Delete" aria-label={`Delete ${c.name}`} className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

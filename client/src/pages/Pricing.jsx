@@ -155,6 +155,7 @@ export default function Pricing() {
                   limitText(plan.limits.invoicesPerMonth, "invoices a month"),
                   limitText(plan.limits.buyers, "buyers"),
                   limitText(plan.limits.items, "products"),
+                  ...(plan.features?.multiUser ? ["Staff logins and activity log"] : []),
                 ].map((text) => (
                   <li key={text} className="flex items-center gap-2">
                     <Check className="w-4 h-4 flex-shrink-0 text-brand-600" strokeWidth={3} /> {text}

@@ -9,6 +9,7 @@ import { money, shortDate } from "../lib/format";
 import { downloadQuotationPdf } from "../lib/invoicePdf";
 import { useBusiness } from "../context/BusinessContext";
 import { todayISO } from "../lib/period";
+import { useCan } from "../context/AuthContext";
 
 const STYLES = {
   open: "bg-amber-50 text-amber-800 border-amber-200",
@@ -34,6 +35,7 @@ function whatsappQuote(q, business) {
 }
 
 export default function Quotations() {
+  const can = useCan();
   const navigate = useNavigate();
   const { business } = useBusiness();
   const [params, setParams] = useSearchParams();
@@ -104,7 +106,9 @@ export default function Quotations() {
               onChange={(e) => setParams(e.target.value ? { search: e.target.value } : {}, { replace: true })}
               className="input pl-9" />
           </div>
-          <Link to="/quotations/create" className="btn-primary"><Plus className="w-4 h-4" /> New quotation</Link>
+          {can("createQuotation") && (
+            <Link to="/quotations/create" className="btn-primary"><Plus className="w-4 h-4" /> New quotation</Link>
+          )}
         </div>
 
         {list === null ? (
@@ -150,7 +154,7 @@ export default function Quotations() {
                             Invoiced
                           </Link>
                         ) : (
-                          <select aria-label={`Status of ${q.invoiceNumber}`} value={q.status} disabled={busy === q._id}
+                          <select aria-label={`Status of ${q.invoiceNumber}`} value={q.status} disabled={busy === q._id || !can("createQuotation")}
                             onChange={(e) => setStatus(q, e.target.value)} className={`badge pr-6 ${STYLES[q.status]}`}>
                             <option value="open">Open</option>
                             <option value="accepted">Accepted</option>
@@ -160,7 +164,7 @@ export default function Quotations() {
                       </td>
                       <td className="td">
                         <div className="flex justify-end gap-1">
-                          {!converted && (
+                          {!converted && can("createInvoice") && (
                             <button onClick={() => convert(q)} disabled={busy === q._id} className="btn-primary btn-sm">Convert</button>
                           )}
                           <button onClick={() => download(q)} disabled={busy === q._id} title="Download PDF" aria-label={`Download ${q.invoiceNumber}`} className="btn-secondary btn-sm">
@@ -171,14 +175,16 @@ export default function Quotations() {
                               <MessageCircle className="w-3.5 h-3.5" />
                             </a>
                           )}
-                          {!converted && (
+                          {!converted && can("createQuotation") && (
                             <Link to={`/quotations/${q._id}/edit`} title="Edit" aria-label={`Edit ${q.invoiceNumber}`} className="btn btn-sm text-slate-600 hover:bg-slate-100">
                               <Pencil className="w-3.5 h-3.5" />
                             </Link>
                           )}
-                          <button onClick={() => remove(q)} title="Delete" aria-label={`Delete ${q.invoiceNumber}`} className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {can("deleteQuotation") && (
+                            <button onClick={() => remove(q)} title="Delete" aria-label={`Delete ${q.invoiceNumber}`} className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

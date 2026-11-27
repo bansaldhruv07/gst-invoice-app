@@ -6,11 +6,13 @@ import { Plus, Search, Trash2, ChevronLeft, ChevronRight, ShoppingCart, Check, A
 import { money, rupees, shortDate } from "../lib/format";
 import PaymentModal from "../components/PaymentModal";
 import { Spinner, EmptyState, StatusBadge, Stats } from "../components/ui";
+import { useCan } from "../context/AuthContext";
 
 const STATUSES = ["all", "unpaid", "partial", "paid", "cancelled"];
 const PAGE_SIZE = 15;
 
 export default function Purchases() {
+  const can = useCan();
   const [purchases, setPurchases] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -98,9 +100,11 @@ export default function Purchases() {
       )}
 
       <div className="flex justify-end">
-        <Link to="/purchases/create" className="btn-primary">
-          <Plus className="w-4 h-4" /> New purchase
-        </Link>
+        {can("editPurchases") && (
+          <Link to="/purchases/create" className="btn-primary">
+            <Plus className="w-4 h-4" /> New purchase
+          </Link>
+        )}
       </div>
 
       <section className="card overflow-hidden">
@@ -127,7 +131,7 @@ export default function Purchases() {
           <EmptyState
             title={filtered ? "No purchases match these filters" : "No purchases yet"}
             hint={filtered ? "Change the search, status or dates." : "Record supplier bills to track what you owe and the GST you paid."}
-            action={!filtered && <Link to="/purchases/create" className="btn-primary">Record a purchase</Link>}
+            action={!filtered && can("editPurchases") && <Link to="/purchases/create" className="btn-primary">Record a purchase</Link>}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -165,13 +169,15 @@ export default function Purchases() {
                     <td className="td"><StatusBadge status={p.status} /></td>
                     <td className="td">
                       <div className="flex justify-end gap-2">
-                        {(p.status === "unpaid" || p.status === "partial") && (
+                        {can("editPurchases") && (p.status === "unpaid" || p.status === "partial") && (
                           <button onClick={() => setPaying(p)} className="btn-secondary btn-sm">Pay</button>
                         )}
-                        <button onClick={() => remove(p)} title="Delete" aria-label={`Delete ${p.purchaseNumber}`}
-                          className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {can("editPurchases") && (
+                          <button onClick={() => remove(p)} title="Delete" aria-label={`Delete ${p.purchaseNumber}`}
+                            className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

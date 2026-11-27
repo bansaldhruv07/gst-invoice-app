@@ -29,8 +29,8 @@ export default function Register() {
       toast.error("Fill in all the fields");
       return;
     }
-    if (form.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    if (form.password.length < 8) {
+      toast.error("Password must be at least 8 characters");
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -75,14 +75,14 @@ export default function Register() {
           <label htmlFor="password" className="label">Password</label>
           <div className="relative">
             <input id="password" name="password" type={passwordType} autoComplete="new-password"
-              required minLength={6} value={form.password} onChange={handleChange} className="input h-10 pr-10" />
+              required minLength={8} value={form.password} onChange={handleChange} className="input h-10 pr-10" />
             <button type="button" onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "Hide password" : "Show password"}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          <p className="mt-1 text-xs text-slate-500">At least 6 characters.</p>
+          <p className="mt-1 text-xs text-slate-500">At least 8 characters.</p>
         </div>
         <div>
           <label htmlFor="confirmPassword" className="label">Confirm password</label>

@@ -9,8 +9,10 @@ import { BusinessProvider, useBusiness } from "../context/BusinessContext";
 import { AssistantProvider, useAssistant } from "../context/AssistantContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { ASSISTANT_NAME } from "../lib/assistant";
+import { useCan } from "../context/AuthContext";
 
 const TITLES = [
+  [/^\/team/, "Team"],
   [/^\/dashboard$/, "Overview"],
   [/^\/assistant$/, ASSISTANT_NAME],
   [/^\/invoices$/, "Invoices"],
@@ -39,6 +41,7 @@ function Shell() {
   const { business } = useBusiness();
   const subscription = useSubscription();
   const { open: assistantOpen, setOpen: setAssistantOpen } = useAssistant();
+  const can = useCan();
   const [navOpen, setNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
@@ -104,7 +107,7 @@ function Shell() {
               <Search className="w-4 h-4" strokeWidth={2} />
               <span className="hidden xl:inline text-slate-400 font-medium">Ctrl K</span>
             </button>
-            {!writing && (
+            {!writing && can("createInvoice") && (
               <Link to="/invoices/create" className="btn-primary">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">New invoice</span>

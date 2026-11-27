@@ -8,6 +8,7 @@ import { Spinner, EmptyState, Stats } from "../components/ui";
 import { rupees, money, shortDate } from "../lib/format";
 import { downloadCsv } from "../lib/csv";
 import { todayISO } from "../lib/period";
+import { useCan } from "../context/AuthContext";
 
 function AdjustForm({ row, onClose, onSaved }) {
   const [form, setForm] = useState({ direction: "remove", quantity: "", reason: "", date: todayISO() });
@@ -138,6 +139,7 @@ function History({ row, onClose, onChanged }) {
 }
 
 export default function Stock() {
+  const can = useCan();
   const [stock, setStock] = useState(null);
   const [search, setSearch] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
@@ -237,7 +239,9 @@ export default function Stock() {
                   <td className="td text-right hidden md:table-cell">{s.soldRecently}</td>
                   <td className="td text-right whitespace-nowrap">{money(s.value)}</td>
                   <td className="td text-right">
-                    <button onClick={() => setAdjusting(s)} className="btn-secondary btn-sm">Adjust</button>
+                    {can("adjustStock") && (
+                      <button onClick={() => setAdjusting(s)} className="btn-secondary btn-sm">Adjust</button>
+                    )}
                   </td>
                 </tr>
               ))}

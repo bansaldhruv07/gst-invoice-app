@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, useCan } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import {
   LayoutGrid,
@@ -15,6 +15,7 @@ import {
   Wallet,
   Boxes,
   BarChart3,
+  UserCog,
 } from "lucide-react";
 import { Logo, Spark } from "./Logo";
 import { ASSISTANT_NAME } from "../lib/assistant";
@@ -32,24 +33,25 @@ const NAV = [
   {
     heading: "Purchases",
     items: [
-      { label: "Purchases", icon: ShoppingCart, to: "/purchases" },
-      { label: "Sellers", icon: Truck, to: "/sellers" },
-      { label: "Expenses", icon: Wallet, to: "/expenses" },
+      { label: "Purchases", icon: ShoppingCart, to: "/purchases", need: "purchases" },
+      { label: "Sellers", icon: Truck, to: "/sellers", need: "sellers" },
+      { label: "Expenses", icon: Wallet, to: "/expenses", need: "expenses" },
     ],
   },
   {
     heading: "Inventory",
     items: [
       { label: "Products", icon: Package, to: "/items" },
-      { label: "Stock", icon: Boxes, to: "/stock" },
+      { label: "Stock", icon: Boxes, to: "/stock", need: "stock" },
     ],
   },
   {
     heading: "Business",
     items: [
-      { label: "Reports", icon: BarChart3, to: "/reports" },
+      { label: "Reports", icon: BarChart3, to: "/reports", need: "reports" },
+      { label: "Team", icon: UserCog, to: "/team", need: "team" },
       { label: "Settings", icon: Settings, to: "/settings" },
-      { label: "Plans", icon: CreditCard, to: "/pricing" },
+      { label: "Plans", icon: CreditCard, to: "/pricing", need: "plans" },
     ],
   },
 ];
@@ -57,6 +59,10 @@ const NAV = [
 export default function Sidebar({ open, onNavigate }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const can = useCan();
+  const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.need || can(i.need)) })).filter(
+    (g) => g.items.length,
+  );
 
   const handleLogout = () => {
     logout();
@@ -89,7 +95,7 @@ export default function Sidebar({ open, onNavigate }) {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-2">
-        {NAV.map((group, i) => (
+        {groups.map((group, i) => (
           <div key={group.heading || i} className="mb-3">
             {group.heading && (
               <p className="px-3 mb-1 text-xs font-semibold text-slate-400">{group.heading}</p>
@@ -121,7 +127,9 @@ export default function Sidebar({ open, onNavigate }) {
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-800 truncate">{user?.name}</p>
-          <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+          <p className="text-xs text-slate-400 truncate">
+            {user?.role === "staff" ? "Billing staff" : user?.role === "accountant" ? "Accountant" : user?.email}
+          </p>
         </div>
         <button
           onClick={handleLogout}

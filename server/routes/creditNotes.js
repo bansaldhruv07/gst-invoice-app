@@ -7,16 +7,20 @@ const { nextInSeries, financialYear } = require("../services/invoiceNumber");
 const { createNumbered } = require("../services/documents");
 const { computeTotals } = require("../services/gst");
 const { refreshBalance } = require("../services/balance");
-const { round2, sum, BadRequest, route, findOwned } = require("../services/common");
+const { round2, sum, BadRequest, route, findOwned, retryOnConflict, withLock } = require("../services/common");
 
 router.use(protect);
 
 // Keeps the invoice's credited amount and balance in step with its credit notes
-async function applyToInvoice(invoice) {
-  const notes = await CreditNote.find({ invoice: invoice._id }).select("grandTotal");
-  invoice.creditedAmount = sum(notes, (n) => n.grandTotal);
-  refreshBalance(invoice);
-  await invoice.save();
+async function applyToInvoice(invoiceId) {
+  await retryOnConflict(async () => {
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) return;
+    const notes = await CreditNote.find({ invoice: invoice._id }).select("grandTotal");
+    invoice.creditedAmount = sum(notes, (n) => n.grandTotal);
+    refreshBalance(invoice);
+    await invoice.save();
+  });
 }
 
 router.get("/", route(async (req, res) => {
@@ -37,8 +41,15 @@ router.get("/:id", route(async (req, res) => {
 
 // body: { invoiceId, date, reason, restock, items: [{ lineId, quantity }] }
 router.post("/", route(async (req, res) => {
-  const { invoiceId, date, reason, restock = true, items } = req.body;
+  const { invoiceId } = req.body;
   if (!invoiceId) throw new BadRequest("Choose an invoice");
+  const target = await findOwned(Invoice, req, invoiceId, "Invoice");
+  // Held while we count what has already been returned, so it cannot be returned twice
+  await withLock(Invoice, target._id, () => createCreditNote(req, res));
+}));
+
+async function createCreditNote(req, res) {
+  const { invoiceId, date, reason, restock = true, items } = req.body;
   const invoice = await findOwned(Invoice, req, invoiceId, "Invoice");
   if (invoice.status === "cancelled") throw new BadRequest("This invoice is cancelled");
 
@@ -114,15 +125,14 @@ router.post("/", route(async (req, res) => {
     () => nextInSeries(CreditNote, req.user._id, "number", head),
   );
 
-  await applyToInvoice(invoice);
+  await applyToInvoice(invoice._id);
   res.status(201).json({ success: true, creditNote });
-}));
+}
 
 router.delete("/:id", route(async (req, res) => {
   const creditNote = await findOwned(CreditNote, req, req.params.id, "Credit note");
   await creditNote.deleteOne();
-  const invoice = await Invoice.findOne({ _id: creditNote.invoice, user: req.user._id });
-  if (invoice) await applyToInvoice(invoice);
+  await applyToInvoice(creditNote.invoice);
   res.json({ success: true });
 }));
 

@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider, useAuth, useCan } from "./context/AuthContext";
+import Team from "./pages/Team";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Pricing from "./pages/Pricing";
 // Pages
 import Login from "./pages/Login";
@@ -58,6 +61,12 @@ function PublicRoute({ children }) {
   return !user ? children : <Navigate to="/dashboard" replace />;
 }
 
+// Sends a login that may not use a screen back to the overview
+function Allow({ ability, children }) {
+  const can = useCan();
+  return can(ability) ? children : <Navigate to="/dashboard" replace />;
+}
+
 // Visitors see the home page; signed-in users go straight to their overview
 function Home() {
   const { user, loading } = useAuth();
@@ -106,6 +115,9 @@ export default function App() {
             />
 
             <Route path="/" element={<Home />} />
+            <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+            {/* Opened from an email, so it works whether or not someone is signed in */}
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Protected routes — all wrapped in Layout (sidebar + navbar) */}
             <Route
@@ -116,26 +128,27 @@ export default function App() {
               }
             >
               <Route path="assistant" element={<AssistantPage />} />
-              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/pricing" element={<Allow ability="plans"><Pricing /></Allow>} />
               <Route path="dashboard" element={<Overview />} />
               <Route path="invoices" element={<Invoices />} />
               <Route path="buyers" element={<Contacts key="buyers" kind="buyers" />} />
               <Route path="buyers/:id" element={<Ledger key="buyer" kind="buyer" />} />
               <Route path="items" element={<Products />} />
-              <Route path="stock" element={<Stock />} />
-              <Route path="expenses" element={<Expenses />} />
-              <Route path="reports" element={<Reports />} />
+              <Route path="stock" element={<Allow ability="stock"><Stock /></Allow>} />
+              <Route path="expenses" element={<Allow ability="expenses"><Expenses /></Allow>} />
+              <Route path="reports" element={<Allow ability="reports"><Reports /></Allow>} />
               <Route path="quotations" element={<Quotations />} />
-              <Route path="quotations/create" element={<CreateInvoice />} />
-              <Route path="quotations/:id/edit" element={<CreateInvoice />} />
-              <Route path="invoices/:id/edit" element={<CreateInvoice />} />
-              <Route path="invoices/create" element={<CreateInvoice />} />
+              <Route path="quotations/create" element={<Allow ability="createQuotation"><CreateInvoice /></Allow>} />
+              <Route path="quotations/:id/edit" element={<Allow ability="createQuotation"><CreateInvoice /></Allow>} />
+              <Route path="invoices/:id/edit" element={<Allow ability="editInvoice"><CreateInvoice /></Allow>} />
+              <Route path="invoices/create" element={<Allow ability="createInvoice"><CreateInvoice /></Allow>} />
               <Route path="invoices/:id" element={<InvoiceDetail />} />
-              <Route path="purchases" element={<Purchases />} />
-              <Route path="purchases/create" element={<CreatePurchase />} />
-              <Route path="sellers" element={<Contacts key="sellers" kind="sellers" />} />
-              <Route path="sellers/:id" element={<Ledger key="seller" kind="seller" />} />
+              <Route path="purchases" element={<Allow ability="purchases"><Purchases /></Allow>} />
+              <Route path="purchases/create" element={<Allow ability="editPurchases"><CreatePurchase /></Allow>} />
+              <Route path="sellers" element={<Allow ability="sellers"><Contacts key="sellers" kind="sellers" /></Allow>} />
+              <Route path="sellers/:id" element={<Allow ability="sellers"><Ledger key="seller" kind="seller" /></Allow>} />
               <Route path="settings" element={<Settings />} />
+              <Route path="team" element={<Allow ability="team"><Team /></Allow>} />
             </Route>
 
             {/* Catch-all */}

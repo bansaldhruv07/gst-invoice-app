@@ -4,6 +4,7 @@ const Plan         = require("../models/Plan");
 const Invoice      = require("../models/Invoice");
 const Buyer        = require("../models/Buyer");
 const Item         = require("../models/Item");
+const { sendError } = require("../services/common");
 
 // Auto-debit renewals reach us by webhook, which can lag the billing date
 const RENEWAL_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
@@ -73,7 +74,7 @@ const canCreateInvoice = async (req, res, next) => {
     req.sub  = sub;
     next();
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 };
 
@@ -99,7 +100,7 @@ const canAddBuyer = async (req, res, next) => {
     }
     next();
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 };
 
@@ -125,7 +126,7 @@ const canAddItem = async (req, res, next) => {
     }
     next();
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 };
 
@@ -145,7 +146,7 @@ const checkFeature = (feature) => async (req, res, next) => {
     }
     next();
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 };
 

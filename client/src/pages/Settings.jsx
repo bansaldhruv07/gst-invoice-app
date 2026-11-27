@@ -7,6 +7,7 @@ import { STATE_OPTIONS, GST_STATES, stateCodeFor } from "../lib/states";
 import { defaultTerms } from "../lib/terms";
 import { Spinner, EmptyState } from "../components/ui";
 import AccountSettings from "../components/AccountSettings";
+import { useCan } from "../context/AuthContext";
 
 // Scales an uploaded image down so it stays small enough to store with the profile
 function readImage(file, maxSide = 480) {
@@ -198,6 +199,9 @@ function SettingsForm({ business, onSaved }) {
         <Field label="Account number"><input inputMode="numeric" {...bind("bankAccount")} /></Field>
         <Field label="IFSC code"><input maxLength={11} {...bind("bankIfsc", (v) => v.toUpperCase())} /></Field>
         <Field label="Branch"><input {...bind("bankBranch")} /></Field>
+        <Field label="UPI ID" wide note="Shows a payment QR on every unpaid invoice screen. It is not printed on the bill.">
+          <input placeholder="shopname@bank" maxLength={100} {...bind("upiId", (v) => v.trim())} />
+        </Field>
       </Section>
 
       <Section title="Invoice preferences" hint="Numbering and the terms printed at the foot of the bill.">
@@ -227,6 +231,10 @@ function SettingsForm({ business, onSaved }) {
 
 export default function Settings() {
   const { business, setBusiness, refresh, error } = useBusiness();
+  const can = useCan();
+
+  // Team logins manage only their own password
+  if (!can("settings")) return <AccountSettings />;
 
   if (error) {
     return (

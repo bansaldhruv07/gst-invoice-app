@@ -96,4 +96,7 @@ buyerSchema.pre("save", function (next) {
   next();
 });
 
+buyerSchema.set("optimisticConcurrency", true);
+buyerSchema.add({ lockedUntil: { type: Date, default: null, select: false } });
+
 module.exports = mongoose.model("Buyer", buyerSchema);

@@ -5,6 +5,8 @@ const Seller   = require("../models/Seller");
 const { protect } = require("../middleware/auth");
 const { escapeRegex } = require("../services/invoiceNumber");
 
+const { BadRequest, findOwned, retryOnConflict, round2, route, sum, sendError } = require("../services/common");
+
 router.use(protect);
 
 // ─── Helper: GST calculation (same logic as invoices) ────────────────────────
@@ -83,7 +85,7 @@ router.get("/stats", async (req, res) => {
     const d = stats[0] || { totalPurchases: 0, totalAmount: 0, totalPaid: 0, totalBalance: 0 };
     res.json({ success: true, stats: { ...d, unpaidCount, partialCount, paidCount, cancelledCount } });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -120,7 +122,7 @@ router.get("/", async (req, res) => {
 
     res.json({ success: true, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)), purchases });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -132,7 +134,7 @@ router.get("/:id", async (req, res) => {
     if (!purchase) return res.status(404).json({ success: false, message: "Purchase not found" });
     res.json({ success: true, purchase });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -207,64 +209,50 @@ router.post("/", async (req, res) => {
     await purchase.populate("seller");
     res.status(201).json({ success: true, message: "Purchase created", purchase });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
 // ─── PUT /api/purchases/:id/status ───────────────────────────────────────────
-router.put("/:id/status", async (req, res) => {
-  try {
-    const { status } = req.body;
-    if (!["unpaid","partial","paid","cancelled"].includes(status)) {
-      return res.status(400).json({ success: false, message: "Invalid status" });
-    }
-    const purchase = await Purchase.findOne({ _id: req.params.id, user: req.user._id });
-    if (!purchase) return res.status(404).json({ success: false, message: "Purchase not found" });
-    purchase.status = status;
-    await purchase.save();
-    res.json({ success: true, message: `Marked as ${status}`, purchase });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+router.put("/:id/status", route(async (req, res) => {
+  const { status } = req.body;
+  if (!["unpaid", "partial", "paid", "cancelled"].includes(status)) {
+    throw new BadRequest("Invalid status");
   }
-});
+  const purchase = await retryOnConflict(async () => {
+    const purchase = await findOwned(Purchase, req, req.params.id, "Purchase");
+    purchase.status = status;
+    return purchase.save();
+  });
+  res.json({ success: true, message: `Marked as ${status}`, purchase });
+}));
 
 // ─── POST /api/purchases/:id/payment ─────────────────────────────────────────
-router.post("/:id/payment", async (req, res) => {
-  try {
-    const { amount, date, mode, note } = req.body;
-    if (!amount || parseFloat(amount) <= 0) {
-      return res.status(400).json({ success: false, message: "Valid amount required" });
-    }
+router.post("/:id/payment", route(async (req, res) => {
+  const { date, mode, note } = req.body;
+  const amount = round2(req.body.amount);
+  if (!(amount > 0)) throw new BadRequest("Valid amount required");
 
-    const purchase = await Purchase.findOne({ _id: req.params.id, user: req.user._id });
-    if (!purchase) return res.status(404).json({ success: false, message: "Purchase not found" });
-    if (purchase.status === "cancelled") {
-      return res.status(400).json({ success: false, message: "Cannot pay cancelled purchase" });
+  const purchase = await retryOnConflict(async () => {
+    const purchase = await findOwned(Purchase, req, req.params.id, "Purchase");
+    if (purchase.status === "cancelled") throw new BadRequest("Cannot pay cancelled purchase");
+    if (amount > purchase.balanceAmount + 0.001) {
+      throw new BadRequest("Payment is more than the balance due");
     }
-
-    if (parseFloat(amount) > purchase.balanceAmount + 0.001) {
-      return res.status(400).json({ success: false, message: "Payment is more than the balance due" });
-    }
-
     purchase.paymentHistory.push({
-      amount: parseFloat(amount),
-      date:   date ? new Date(date) : new Date(),
-      mode:   mode || "upi",
-      note:   note || "",
+      amount,
+      date: date ? new Date(date) : new Date(),
+      mode: mode || "upi",
+      note: note || "",
     });
-
-    const paise = (n) => Math.round(n * 100) / 100;
-    purchase.paidAmount    = paise(purchase.paymentHistory.reduce((s, p) => s + p.amount, 0));
-    purchase.balanceAmount = Math.max(0, paise(purchase.grandTotal - purchase.paidAmount));
-    purchase.status = purchase.paidAmount >= purchase.grandTotal
-      ? "paid" : purchase.paidAmount > 0 ? "partial" : "unpaid";
-
-    await purchase.save();
-    res.json({ success: true, message: "Payment recorded", purchase });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
+    purchase.paidAmount = sum(purchase.paymentHistory, (p) => p.amount);
+    purchase.balanceAmount = Math.max(0, round2(purchase.grandTotal - purchase.paidAmount));
+    purchase.status =
+      purchase.paidAmount >= purchase.grandTotal ? "paid" : purchase.paidAmount > 0 ? "partial" : "unpaid";
+    return purchase.save();
+  });
+  res.json({ success: true, message: "Payment recorded", purchase });
+}));
 
 // ─── DELETE /api/purchases/:id ────────────────────────────────────────────────
 router.delete("/:id", async (req, res) => {
@@ -273,7 +261,7 @@ router.delete("/:id", async (req, res) => {
     if (!purchase) return res.status(404).json({ success: false, message: "Purchase not found" });
     res.json({ success: true, message: "Purchase deleted" });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
