@@ -3,6 +3,11 @@ const router = express.Router();
 const Item = require("../models/Item");
 const { canAddItem } = require("../middleware/checkPlan");
 const { protect } = require("../middleware/auth");
+const { escapeRegex } = require("../services/invoiceNumber");
+
+const STOCK_FIELDS = ["purchasePrice", "trackStock", "openingStock", "stockSince", "lowStockAt"];
+const pick = (body, keys) =>
+  Object.fromEntries(keys.filter((k) => body[k] !== undefined && body[k] !== "").map((k) => [k, body[k]]));
 
 // All item routes require login
 router.use(protect);
@@ -19,7 +24,7 @@ router.get("/", async (req, res) => {
 
     // Filter by name (case-insensitive partial match)
     if (search) {
-      filter.name = { $regex: search, $options: "i" };
+      filter.name = { $regex: escapeRegex(String(search)), $options: "i" };
     }
 
     // Filter by GST rate if provided
@@ -78,6 +83,7 @@ router.post("/", canAddItem, async (req, res) => {
     }
 
     const item = await Item.create({
+      ...pick(req.body, STOCK_FIELDS),
       user: req.user._id,
       name,
       hsn: hsn || "",
@@ -131,6 +137,7 @@ router.put("/:id", async (req, res) => {
     if (price !== undefined) item.price = Number(price);
     if (gstPercent !== undefined) item.gstPercent = Number(gstPercent);
     if (description !== undefined) item.description = description;
+    item.set(pick(req.body, STOCK_FIELDS));
 
     await item.save();
 

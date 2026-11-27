@@ -4,16 +4,23 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import Pricing from "./pages/Pricing";
 // Pages
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
+import AssistantPage from "./pages/AssistantPage";
 import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import Buyers from "./pages/Buyers";
-import Items from "./pages/Items";
+import Overview from "./pages/Overview";
+import Invoices from "./pages/Invoices";
+import Contacts from "./pages/Contacts";
+import Products from "./pages/Products";
+import Ledger from "./pages/Ledger";
+import Quotations from "./pages/Quotations";
+import Stock from "./pages/Stock";
+import Expenses from "./pages/Expenses";
+import Reports from "./pages/Reports";
 import CreateInvoice from "./pages/CreateInvoice";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
 import Purchases from "./pages/Purchases";
 import CreatePurchase from "./pages/CreatePurchase";
-import Sellers from "./pages/Sellers";
 import Settings from "./pages/Settings";
 
 // Layout
@@ -26,7 +33,7 @@ function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
       </div>
     );
@@ -42,7 +49,7 @@ function PublicRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
       </div>
     );
@@ -51,20 +58,27 @@ function PublicRoute({ children }) {
   return !user ? children : <Navigate to="/dashboard" replace />;
 }
 
+// Visitors see the home page; signed-in users go straight to their overview
+function Home() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? <Navigate to="/dashboard" replace /> : <Landing />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <SubscriptionProvider>
         <BrowserRouter>
-          {/* Toast notifications — top right corner */}
+          {/* Toast notifications */}
           <Toaster
-            position="top-right"
+            position="bottom-center"
             toastOptions={{
               duration: 3000,
               style: {
-                background: "#1e293b",
-                color: "#f8fafc",
-                borderRadius: "8px",
+                background: "#0e1431",
+                color: "#f6f8fd",
+                borderRadius: "12px",
                 fontSize: "14px",
               },
               success: { iconTheme: { primary: "#22c55e", secondary: "#fff" } },
@@ -91,31 +105,41 @@ export default function App() {
               }
             />
 
+            <Route path="/" element={<Home />} />
+
             {/* Protected routes — all wrapped in Layout (sidebar + navbar) */}
             <Route
-              path="/"
               element={
                 <ProtectedRoute>
                   <Layout />
                 </ProtectedRoute>
               }
             >
-              {/* Default redirect */}
-              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="assistant" element={<AssistantPage />} />
               <Route path="/pricing" element={<Pricing />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="buyers" element={<Buyers />} />
-              <Route path="items" element={<Items />} />
+              <Route path="dashboard" element={<Overview />} />
+              <Route path="invoices" element={<Invoices />} />
+              <Route path="buyers" element={<Contacts key="buyers" kind="buyers" />} />
+              <Route path="buyers/:id" element={<Ledger key="buyer" kind="buyer" />} />
+              <Route path="items" element={<Products />} />
+              <Route path="stock" element={<Stock />} />
+              <Route path="expenses" element={<Expenses />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="quotations" element={<Quotations />} />
+              <Route path="quotations/create" element={<CreateInvoice />} />
+              <Route path="quotations/:id/edit" element={<CreateInvoice />} />
+              <Route path="invoices/:id/edit" element={<CreateInvoice />} />
               <Route path="invoices/create" element={<CreateInvoice />} />
               <Route path="invoices/:id" element={<InvoiceDetail />} />
               <Route path="purchases" element={<Purchases />} />
               <Route path="purchases/create" element={<CreatePurchase />} />
-              <Route path="sellers" element={<Sellers />} />
+              <Route path="sellers" element={<Contacts key="sellers" kind="sellers" />} />
+              <Route path="sellers/:id" element={<Ledger key="seller" kind="seller" />} />
               <Route path="settings" element={<Settings />} />
             </Route>
 
             {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </SubscriptionProvider>

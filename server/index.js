@@ -20,14 +20,18 @@ app.use(
     origin: [
       "http://localhost:5173", // Vite dev server
       "http://localhost:3000", // fallback
-      process.env.CLIENT_URL || "", // production frontend URL (set later)
-    ],
+      // production frontend URL, tolerating a trailing slash in the setting
+      (process.env.CLIENT_URL || "").replace(/\/+$/, ""),
+    ].filter(Boolean),
     credentials: true,
   }),
 );
 
-// Parse incoming JSON request bodies
-app.use(express.json());
+// Razorpay signs the exact bytes it sends, so this must run before the JSON parser
+app.use("/api/subscriptions/webhook", express.raw({ type: "application/json" }));
+
+// Parse incoming JSON request bodies (logo and signature images are included)
+app.use(express.json({ limit: "3mb" }));
 
 // ─── Route imports (we'll create these files in Steps 4–7) ────────────────────
 const authRoutes = require("./routes/auth");
@@ -62,8 +66,22 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/sellers", sellerRoutes);
+app.use("/api/purchases", purchaseRoutes);
+app.use("/api/insights", require("./routes/insights"));
+app.use("/api/assistant", require("./routes/assistant"));
+app.use("/api/quotations", require("./routes/quotations"));
+app.use("/api/credit-notes", require("./routes/creditNotes"));
+app.use("/api/stock", require("./routes/stock"));
+app.use("/api/expenses", require("./routes/expenses"));
+app.use("/api/ledger", require("./routes/ledger"));
+app.use("/api/reports", require("./routes/reports"));
+app.use("/api/data", require("./routes/data"));
+
 // ─── Global error handler ─────────────────────────────────────────────────────
 // Catches any error thrown inside route handlers via next(err)
+// Must stay after all routes, or it won't catch their errors
 app.use((err, req, res, next) => {
   console.error("Global error:", err.stack);
   res.status(err.status || 500).json({
@@ -71,10 +89,6 @@ app.use((err, req, res, next) => {
     message: err.message || "Internal Server Error",
   });
 });
-
-app.use("/api/subscriptions", subscriptionRoutes);
-app.use("/api/sellers", sellerRoutes);
-app.use("/api/purchases", purchaseRoutes);
 
 // ─── Seed default plans on startup ───────────────────────────────────────────
 const Plan = require("./models/Plan");

@@ -3,6 +3,7 @@ const router   = express.Router();
 const Purchase = require("../models/Purchase");
 const Seller   = require("../models/Seller");
 const { protect } = require("../middleware/auth");
+const { escapeRegex } = require("../services/invoiceNumber");
 
 router.use(protect);
 
@@ -101,11 +102,11 @@ router.get("/", async (req, res) => {
     if (search) {
       const matchingSellers = await Seller.find({
         user: req.user._id,
-        name: { $regex: search, $options: "i" },
+        name: { $regex: escapeRegex(String(search)), $options: "i" },
       }).select("_id");
       filter.$or = [
         { seller: { $in: matchingSellers.map(s => s._id) } },
-        { purchaseNumber: { $regex: search, $options: "i" } },
+        { purchaseNumber: { $regex: escapeRegex(String(search)), $options: "i" } },
       ];
     }
 
@@ -151,7 +152,7 @@ router.post("/", async (req, res) => {
     const seller = await Seller.findOne({ _id: sellerId, user: req.user._id });
     if (!seller) return res.status(404).json({ success: false, message: "Seller not found" });
 
-    const supplierStateCode = process.env.SUPPLIER_STATE_CODE || "07";
+    const supplierStateCode = req.user.supplierStateCode || "07";
     const taxType = seller.stateCode && seller.stateCode !== supplierStateCode
       ? "igst" : "cgst_sgst";
 
@@ -160,7 +161,8 @@ router.post("/", async (req, res) => {
     const totalCgst    = calcItems.reduce((s, i) => s + i.cgstAmount,    0);
     const totalSgst    = calcItems.reduce((s, i) => s + i.sgstAmount,    0);
     const totalIgst    = calcItems.reduce((s, i) => s + i.igstAmount,    0);
-    const totalTax     = totalCgst + totalSgst + totalIgst;
+    // Summed before the CGST/SGST halves are rounded (same as invoices)
+    const totalTax     = calcItems.reduce((s, i) => s + Math.round((i.totalAmount - i.taxableAmount) * 100) / 100, 0);
 
     const dValue = parseFloat(discountValue) || 0;
     const discountAmount = discountType === "percent"
@@ -240,6 +242,10 @@ router.post("/:id/payment", async (req, res) => {
       return res.status(400).json({ success: false, message: "Cannot pay cancelled purchase" });
     }
 
+    if (parseFloat(amount) > purchase.balanceAmount + 0.001) {
+      return res.status(400).json({ success: false, message: "Payment is more than the balance due" });
+    }
+
     purchase.paymentHistory.push({
       amount: parseFloat(amount),
       date:   date ? new Date(date) : new Date(),
@@ -247,8 +253,9 @@ router.post("/:id/payment", async (req, res) => {
       note:   note || "",
     });
 
-    purchase.paidAmount    = purchase.paymentHistory.reduce((s, p) => s + p.amount, 0);
-    purchase.balanceAmount = Math.max(0, purchase.grandTotal - purchase.paidAmount);
+    const paise = (n) => Math.round(n * 100) / 100;
+    purchase.paidAmount    = paise(purchase.paymentHistory.reduce((s, p) => s + p.amount, 0));
+    purchase.balanceAmount = Math.max(0, paise(purchase.grandTotal - purchase.paidAmount));
     purchase.status = purchase.paidAmount >= purchase.grandTotal
       ? "paid" : purchase.paidAmount > 0 ? "partial" : "unpaid";
 

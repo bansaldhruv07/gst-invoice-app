@@ -5,6 +5,19 @@ const Invoice      = require("../models/Invoice");
 const Buyer        = require("../models/Buyer");
 const Item         = require("../models/Item");
 
+// Auto-debit renewals reach us by webhook, which can lag the billing date
+const RENEWAL_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+
+// A paid plan lasts until the end of the period that was paid for, including
+// after cancellation.
+function isEntitled(sub) {
+  if (!sub || !["active", "trialing", "cancelled"].includes(sub.status)) return false;
+  if (!sub.currentPeriodEnd) return sub.status !== "cancelled";
+  const grace =
+    sub.razorpaySubscriptionId && sub.status === "active" ? RENEWAL_GRACE_MS : 0;
+  return sub.currentPeriodEnd.getTime() + grace > Date.now();
+}
+
 // ─── Helper: get user's active plan + limits ──────────────────────────────────
 async function getUserPlan(userId) {
   const user = await User.findById(userId).populate({
@@ -14,7 +27,7 @@ async function getUserPlan(userId) {
 
   // If no subscription or expired, use free plan
   const sub    = user.subscription;
-  const isActive = sub && ["active", "trialing"].includes(sub.status);
+  const isActive = isEntitled(sub);
 
   if (!isActive) {
     const freePlan = await Plan.findOne({ name: "free" });
@@ -136,4 +149,4 @@ const checkFeature = (feature) => async (req, res, next) => {
   }
 };
 
-module.exports = { canCreateInvoice, canAddBuyer, canAddItem, checkFeature };
+module.exports = { canCreateInvoice, canAddBuyer, canAddItem, checkFeature, getUserPlan };

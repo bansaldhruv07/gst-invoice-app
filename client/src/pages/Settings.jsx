@@ -1,337 +1,246 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
-import { Building2, Landmark, Save, ShieldCheck } from "lucide-react";
+import { Upload } from "lucide-react";
+import { useBusiness } from "../context/BusinessContext";
+import { STATE_OPTIONS, GST_STATES, stateCodeFor } from "../lib/states";
+import { defaultTerms } from "../lib/terms";
+import { Spinner, EmptyState } from "../components/ui";
+import AccountSettings from "../components/AccountSettings";
 
-export default function Settings() {
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-
-  // Form states
-  const [name, setName] = useState("");
-  const [gstin, setGstin] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [pincode, setPincode] = useState("");
-  const [stateCode, setStateCode] = useState("07");
-  const [logoUrl, setLogoUrl] = useState("");
-
-  // Bank states
-  const [bankName, setBankName] = useState("");
-  const [bankAccount, setBankAccount] = useState("");
-  const [bankIfsc, setBankIfsc] = useState("");
-  const [bankBranch, setBankBranch] = useState("");
-
-  useEffect(() => {
-    const fetchBusinessDetails = async () => {
-      try {
-        const { data } = await api.get("/auth/supplier-info");
-        if (data && data.supplier) {
-          const S = data.supplier;
-          setName(S.name || "");
-          setGstin(S.gstin || "");
-          setPhone(S.phone || "");
-          setEmail(S.email || "");
-          setAddress(S.address || "");
-          setCity(S.city || "");
-          setState(S.state || "");
-          setPincode(S.pincode || "");
-          setStateCode(S.stateCode || "07");
-          setBankName(S.bankName || "");
-          setBankAccount(S.bankAccount || "");
-          setBankIfsc(S.bankIfsc || "");
-          setBankBranch(S.bankBranch || "");
-          setLogoUrl(S.logoUrl || "");
-        }
-      } catch (err) {
-        toast.error("Failed to load business details");
-      } finally {
-        setFetching(false);
-      }
+// Scales an uploaded image down so it stays small enough to store with the profile
+function readImage(file, maxSide = 480) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/png"));
     };
-    fetchBusinessDetails();
-  }, []);
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("That file is not an image"));
+    };
+    img.src = url;
+  });
+}
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+function Section({ title, hint, children }) {
+  return (
+    <section className="grid lg:grid-cols-[15rem_1fr] gap-x-8 gap-y-3 py-6">
+      <div>
+        <h2 className="text-sm font-semibold">{title}</h2>
+        <p className="mt-1 text-sm text-slate-500">{hint}</p>
+      </div>
+      <div className="card p-5 grid sm:grid-cols-2 gap-4">{children}</div>
+    </section>
+  );
+}
+
+function Field({ label, wide, children, note }) {
+  return (
+    <label className={`block ${wide ? "sm:col-span-2" : ""}`}>
+      <span className="label">{label}</span>
+      {children}
+      {note && <span className="block mt-1 text-xs text-slate-500">{note}</span>}
+    </label>
+  );
+}
+
+function ImageField({ label, value, onChange, note }) {
+  const pick = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
     try {
-      await api.put("/auth/supplier-info", {
-        name,
-        gstin,
-        address,
-        city,
-        state,
-        pincode,
-        phone,
-        email,
-        bankName,
-        bankAccount,
-        bankIfsc,
-        bankBranch,
-        stateCode,
-        logoUrl,
-      });
-      toast.success("Business profile updated! Refreshing page details...");
-      // Reload page to propagate details to top header
-      window.location.reload();
+      const data = await readImage(file);
+      if (data.length > 900_000) throw new Error("That image is too detailed. Use a smaller one.");
+      onChange(data);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update profile");
-    } finally {
-      setLoading(false);
+      toast.error(err.message);
     }
   };
 
-  if (fetching) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-4 animate-pulse">
-        <div className="h-8 bg-slate-200 rounded w-1/4" />
-        <div className="h-64 bg-white rounded-xl border border-slate-100" />
-        <div className="h-48 bg-white rounded-xl border border-slate-100" />
+  return (
+    <div>
+      <span className="label">{label}</span>
+      <div className="h-24 flex items-center justify-center border border-dashed border-slate-300 rounded-lg bg-white">
+        {value ? (
+          <img src={value} alt={label} className="max-h-20 max-w-[90%] object-contain" />
+        ) : (
+          <span className="text-sm text-slate-400">None uploaded</span>
+        )}
       </div>
-    );
-  }
+      <div className="mt-2 flex gap-2">
+        <label className="btn-secondary btn-sm cursor-pointer focus-within:ring-2 focus-within:ring-brand-500">
+          <Upload className="w-3.5 h-3.5" /> {value ? "Replace" : "Upload"}
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={pick} className="sr-only" />
+        </label>
+        {value && (
+          <button type="button" onClick={() => onChange("")} className="btn btn-sm text-red-700 hover:bg-red-50">
+            Remove
+          </button>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">{note}</p>
+    </div>
+  );
+}
+
+function nextNumberExample(prefix, start) {
+  const now = new Date();
+  if (!prefix) return `INV-${now.getFullYear()}-0001`;
+  const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${prefix}${year}-${String((year + 1) % 100).padStart(2, "0")}/${start || 1}`;
+}
+
+function SettingsForm({ business, onSaved }) {
+  const [form, setForm] = useState(business);
+  const [saving, setSaving] = useState(false);
+  const dirty = JSON.stringify(form) !== JSON.stringify(business);
+
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  // Binds a text input to one profile field
+  const bind = (key, transform = (v) => v) => ({
+    value: form[key] ?? "",
+    onChange: (e) => set(key, transform(e.target.value)),
+    className: "input",
+  });
+
+  // The first two digits of a GSTIN are the state code
+  const setGstin = (value) => {
+    const gstin = value.toUpperCase();
+    const code = gstin.slice(0, 2);
+    setForm((f) => ({
+      ...f,
+      gstin,
+      ...(GST_STATES[code] ? { stateCode: code, state: GST_STATES[code] } : {}),
+    }));
+  };
+
+  const setState = (name) =>
+    setForm((f) => ({ ...f, state: name, stateCode: stateCodeFor(name) || f.stateCode }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data } = await api.put("/auth/supplier-info", {
+        ...form,
+        invoiceStartNumber: Number(form.invoiceStartNumber) || 1,
+      });
+      setForm(data.supplier);
+      onSaved(data.supplier);
+      toast.success("Settings saved");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not save your settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const knownState = STATE_OPTIONS.some((s) => s.name === form.state);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ── Business Info Card ──────────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-indigo-600" />
-            <h2 className="font-bold text-slate-800 text-base">Business & GST Profile Details</h2>
-          </div>
+    <form onSubmit={handleSubmit} className="max-w-5xl mx-auto -mt-6 divide-y divide-slate-200">
+      <Section title="Business" hint="Printed at the top of every invoice.">
+        <Field label="Business name" wide>
+          <input required {...bind("name")} />
+        </Field>
+        <Field label="GSTIN">
+          <input maxLength={15} value={form.gstin ?? ""} onChange={(e) => setGstin(e.target.value)} className="input font-mono" />
+        </Field>
+        <Field label="PAN" note="Kept on your profile; not printed on the invoice.">
+          <input maxLength={10} {...bind("pan", (v) => v.toUpperCase())} />
+        </Field>
+        <Field label="Phone">
+          <input required type="tel" {...bind("phone")} />
+        </Field>
+        <Field label="Email">
+          <input type="email" {...bind("email")} />
+        </Field>
+        <Field label="Address" wide>
+          <input {...bind("address")} />
+        </Field>
+        <Field label="City">
+          <input {...bind("city")} />
+        </Field>
+        <Field label="Pincode">
+          <input inputMode="numeric" maxLength={6} {...bind("pincode")} />
+        </Field>
+        <Field label="State">
+          <select value={form.state ?? ""} onChange={(e) => setState(e.target.value)} className="input">
+            <option value="">Select a state</option>
+            {!knownState && form.state && <option value={form.state}>{form.state}</option>}
+            {STATE_OPTIONS.map((s) => <option key={s.code} value={s.name}>{s.name}</option>)}
+          </select>
+        </Field>
+        <Field label="GST state code" note="Decides between CGST + SGST and IGST.">
+          <input maxLength={2} inputMode="numeric" {...bind("stateCode")} />
+        </Field>
+      </Section>
 
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Business / Company Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. AGGERWAL TRADERS"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
+      <Section title="Logo and signature" hint="PNG or JPG. A signature on a plain white or transparent background prints best.">
+        <ImageField label="Logo" value={form.logoUrl} onChange={(v) => set("logoUrl", v)}
+          note="Top left of the invoice." />
+        <ImageField label="Signature" value={form.signatureUrl} onChange={(v) => set("signatureUrl", v)}
+          note="Used unless an invoice has its own." />
+      </Section>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                GSTIN (Tax ID Number)
-              </label>
-              <input
-                type="text"
-                value={gstin}
-                onChange={(e) => setGstin(e.target.value)}
-                placeholder="e.g. 07AAAAA0000A1Z1"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-              />
-            </div>
+      <Section title="Bank account" hint="Where buyers should pay. Printed on the invoice.">
+        <Field label="Bank name"><input {...bind("bankName")} /></Field>
+        <Field label="Account number"><input inputMode="numeric" {...bind("bankAccount")} /></Field>
+        <Field label="IFSC code"><input maxLength={11} {...bind("bankIfsc", (v) => v.toUpperCase())} /></Field>
+        <Field label="Branch"><input {...bind("bankBranch")} /></Field>
+      </Section>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Mobile / Phone Number *
-              </label>
-              <input
-                type="text"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. 9015220297"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
+      <Section title="Invoice preferences" hint="Numbering and the terms printed at the foot of the bill.">
+        <Field label="Number prefix" note="Up to 5 characters, such as SBP. Numbers restart each April.">
+          <input maxLength={5} {...bind("invoicePrefix", (v) => v.toUpperCase().replace(/[^A-Z0-9-]/g, ""))} />
+        </Field>
+        <Field label="First number" note="To continue from your old bill book. Applies once, to the first invoice with this prefix.">
+          <input type="number" min={1} max={99999} disabled={!form.invoicePrefix} {...bind("invoiceStartNumber")} />
+        </Field>
+        <p className="sm:col-span-2 text-sm text-slate-600">
+          A new series looks like <span className="font-mono">{nextNumberExample(form.invoicePrefix, form.invoiceStartNumber)}</span>
+        </p>
+        <Field label="Default terms and conditions" wide note="Leave blank to use the standard two lines shown.">
+          <textarea rows={4} placeholder={defaultTerms(form.city)} {...bind("defaultTerms")} />
+        </Field>
+      </Section>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Business Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. contact@business.com"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
+      <div className={`flex items-center justify-end gap-3 py-4 bg-slate-50 ${dirty ? "sticky -bottom-6" : ""}`}>
+        {dirty && <span className="text-sm text-slate-500">You have unsaved changes</span>}
+        <button type="submit" disabled={saving || !dirty} className="btn-primary">
+          {saving ? "Saving…" : "Save settings"}
+        </button>
+      </div>
+    </form>
+  );
+}
 
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Business Logo URL
-              </label>
-              <div className="flex gap-4 items-center">
-                <input
-                  type="text"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="e.g. https://yourwebsite.com/logo.png"
-                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                {logoUrl && (
-                  <div className="w-10 h-10 border border-slate-200 rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center flex-shrink-0">
-                    <img
-                      src={logoUrl}
-                      alt="Logo Preview"
-                      className="max-w-full max-h-full object-contain"
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
+export default function Settings() {
+  const { business, setBusiness, refresh, error } = useBusiness();
 
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Street Address
-              </label>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="e.g. Plot No. 12, Phase-1, Industrial Area"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                City
-              </label>
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="e.g. Delhi"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                State Name
-              </label>
-              <input
-                type="text"
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                placeholder="e.g. Delhi"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Pincode
-              </label>
-              <input
-                type="text"
-                value={pincode}
-                onChange={(e) => setPincode(e.target.value)}
-                placeholder="e.g. 110001"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                GST State Code
-              </label>
-              <input
-                type="text"
-                value={stateCode}
-                onChange={(e) => setStateCode(e.target.value)}
-                placeholder="e.g. 07"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ── Bank Details Card ────────────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
-            <Landmark className="w-5 h-5 text-indigo-600" />
-            <h2 className="font-bold text-slate-800 text-base">Receiving Bank Account Details</h2>
-          </div>
-
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Bank Name
-              </label>
-              <input
-                type="text"
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="e.g. State Bank of India"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Account Number
-              </label>
-              <input
-                type="text"
-                value={bankAccount}
-                onChange={(e) => setBankAccount(e.target.value)}
-                placeholder="e.g. 123456789012"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Bank IFSC Code
-              </label>
-              <input
-                type="text"
-                value={bankIfsc}
-                onChange={(e) => setBankIfsc(e.target.value)}
-                placeholder="e.g. SBIN0001234"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Branch Name
-              </label>
-              <input
-                type="text"
-                value={bankBranch}
-                onChange={(e) => setBankBranch(e.target.value)}
-                placeholder="e.g. Connaught Place"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ── Submit Row ──────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between bg-slate-100 rounded-xl p-4 border border-slate-200">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            <ShieldCheck className="w-5 h-5 text-emerald-500" />
-            Stable billing info saved securely
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
-          >
-            <Save className="w-4.5 h-4.5" />
-            {loading ? "Saving Profile..." : "Save Settings"}
-          </button>
-        </div>
-      </form>
-    </div>
+  if (error) {
+    return (
+      <EmptyState
+        title="Could not load your business details"
+        action={<button onClick={refresh} className="btn-secondary">Try again</button>}
+      />
+    );
+  }
+  if (!business) return <div className="flex justify-center py-20"><Spinner /></div>;
+  return (
+    <>
+      <SettingsForm business={business} onSaved={setBusiness} />
+      <AccountSettings />
+    </>
   );
 }

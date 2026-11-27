@@ -25,6 +25,11 @@ const userSchema = new mongoose.Schema(
       ref: "Subscription",
       default: null,
     },
+    pan:{
+      type: String,
+      unique: true,
+      sparse: true, // users without a PAN are left out of the unique index
+    },
 
     // Custom logo URL (Pro/Starter feature)
     logoUrl: { type: String, default: "" },
@@ -37,12 +42,19 @@ const userSchema = new mongoose.Schema(
     supplierState: { type: String, default: "" },
     supplierPincode: { type: String, default: "" },
     supplierPhone: { type: String, default: "" },
+    supplierPan: { type: String, default: "" },   
     supplierEmail: { type: String, default: "" },
     supplierBankName: { type: String, default: "" },
     supplierBankAccount: { type: String, default: "" },
     supplierBankIfsc: { type: String, default: "" },
     supplierBankBranch: { type: String, default: "" },
     supplierStateCode: { type: String, default: "07" },
+    supplierSignatureUrl: { type: String, default: "" },
+
+    // Invoice preferences
+    invoicePrefix: { type: String, default: "", uppercase: true, trim: true, maxlength: 5 },
+    invoiceStartNumber: { type: Number, default: 1, min: 1, max: 99999 },
+    defaultTerms: { type: String, default: "" },
   },
 
   {

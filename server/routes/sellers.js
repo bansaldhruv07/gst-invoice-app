@@ -1,7 +1,9 @@
 const express = require("express");
 const router  = express.Router();
 const Seller  = require("../models/Seller");
+const Purchase = require("../models/Purchase");
 const { protect } = require("../middleware/auth");
+const { escapeRegex } = require("../services/invoiceNumber");
 
 router.use(protect);
 
@@ -10,7 +12,7 @@ router.get("/", async (req, res) => {
   try {
     const { search } = req.query;
     const filter = { user: req.user._id };
-    if (search) filter.name = { $regex: search, $options: "i" };
+    if (search) filter.name = { $regex: escapeRegex(String(search)), $options: "i" };
     const sellers = await Seller.find(filter).sort({ createdAt: -1 });
     res.json({ success: true, count: sellers.length, sellers });
   } catch (err) {
@@ -37,6 +39,7 @@ router.post("/", async (req, res) => {
 
     const seller = await Seller.create({
       user: req.user._id,
+      openingBalance: Number(req.body.openingBalance) || 0,
       name, gstin: gstin || "", address: address || "",
       city: city || "", state: state || "",
       pincode: pincode || "", mobile: mobile || "", email: email || "",
@@ -53,7 +56,7 @@ router.put("/:id", async (req, res) => {
     const seller = await Seller.findOne({ _id: req.params.id, user: req.user._id });
     if (!seller) return res.status(404).json({ success: false, message: "Seller not found" });
 
-    const fields = ["name","gstin","address","city","state","pincode","mobile","email"];
+    const fields = ["name","gstin","address","city","state","pincode","mobile","email","openingBalance"];
     fields.forEach((f) => { if (req.body[f] !== undefined) seller[f] = req.body[f]; });
     await seller.save();
     res.json({ success: true, message: "Seller updated", seller });
@@ -65,6 +68,9 @@ router.put("/:id", async (req, res) => {
 // DELETE seller
 router.delete("/:id", async (req, res) => {
   try {
+    if (await Purchase.exists({ user: req.user._id, seller: req.params.id })) {
+      return res.status(400).json({ success: false, message: "This seller has purchases, so cannot be deleted" });
+    }
     const seller = await Seller.findOneAndDelete({ _id: req.params.id, user: req.user._id });
     if (!seller) return res.status(404).json({ success: false, message: "Seller not found" });
     res.json({ success: true, message: "Seller deleted" });

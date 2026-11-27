@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const Buyer = require("../models/Buyer");
+const Invoice = require("../models/Invoice");
+const Quotation = require("../models/Quotation");
 const { protect } = require("../middleware/auth");
+const { escapeRegex } = require("../services/invoiceNumber");
 const { canAddBuyer } = require("../middleware/checkPlan");
 
 // All buyer routes require login — apply protect to every route in this file
@@ -19,7 +22,7 @@ router.get("/", async (req, res) => {
 
     // If search param provided, filter by name (case-insensitive)
     if (search) {
-      filter.name = { $regex: search, $options: "i" };
+      filter.name = { $regex: escapeRegex(String(search)), $options: "i" };
     }
 
     const buyers = await Buyer.find(filter).sort({ createdAt: -1 });
@@ -73,6 +76,8 @@ router.post("/", canAddBuyer, async (req, res) => {
     }
 
     const buyer = await Buyer.create({
+      openingBalance: Number(req.body.openingBalance) || 0,
+      creditLimit: Number(req.body.creditLimit) || 0,
       user: req.user._id, // tie buyer to logged-in user
       name,
       gstin: gstin || "",
@@ -132,6 +137,18 @@ router.put("/:id", async (req, res) => {
     if (pincode !== undefined) buyer.pincode = pincode;
     if (mobile !== undefined) buyer.mobile = mobile;
     if (email !== undefined) buyer.email = email;
+    if (req.body.creditLimit !== undefined) buyer.creditLimit = Number(req.body.creditLimit) || 0;
+    if (req.body.openingBalance !== undefined) {
+      const opening = Number(req.body.openingBalance) || 0;
+      const received = buyer.openingPayments.reduce((s, p) => s + p.amount, 0);
+      if (opening < received) {
+        return res.status(400).json({
+          success: false,
+          message: `₹${received} has already been received against the opening balance`,
+        });
+      }
+      buyer.openingBalance = opening;
+    }
 
     // pre-save hook will re-extract stateCode from new GSTIN automatically
     await buyer.save();
@@ -158,6 +175,15 @@ router.put("/:id", async (req, res) => {
 // Deletes a buyer (only if no invoices reference them — checked on frontend)
 router.delete("/:id", async (req, res) => {
   try {
+    const used =
+      (await Invoice.exists({ user: req.user._id, buyer: req.params.id })) ||
+      (await Quotation.exists({ user: req.user._id, buyer: req.params.id }));
+    if (used) {
+      return res.status(400).json({
+        success: false,
+        message: "This buyer has invoices or quotations, so cannot be deleted",
+      });
+    }
     const buyer = await Buyer.findOneAndDelete({
       _id: req.params.id,
       user: req.user._id,
