@@ -19,23 +19,65 @@ class BadRequest extends Error {
   }
 }
 
+const CHANGED = "Someone else changed this record just now. Please refresh and try again.";
+
+// Turns any error into a JSON response without leaking internals
+function sendError(req, res, err) {
+  const status =
+    err.status ||
+    (err.name === "VersionError" ? 409 : ["ValidationError", "CastError"].includes(err.name) ? 400 : 500);
+  if (status >= 500) console.error(`${req.method} ${req.originalUrl}:`, err);
+  res.status(status).json({
+    success: false,
+    message:
+      status >= 500
+        ? "Something went wrong. Please try again."
+        : err.name === "CastError"
+          ? "That record could not be found"
+          : err.name === "VersionError"
+            ? CHANGED
+            : err.message,
+  });
+}
+
+// For money updates: if the record changed between reading and saving, run the
+// whole step again on the fresh record. `step` must load what it saves.
+async function retryOnConflict(step, attempts = 5) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await step();
+    } catch (err) {
+      if (err.name !== "VersionError" || attempt >= attempts) throw err;
+    }
+  }
+}
+
+// Runs `task` while no other request holds the same record. The lock is a time
+// stamp in the database, so it also works with more than one server, and it
+// expires by itself if a server stops halfway.
+async function withLock(Model, id, task, holdMs = 15000) {
+  const now = new Date();
+  const claimed = await Model.updateOne(
+    { _id: id, $or: [{ lockedUntil: null }, { lockedUntil: { $lt: now } }] },
+    { $set: { lockedUntil: new Date(now.getTime() + holdMs) } },
+    { timestamps: false },
+  );
+  if (!claimed.modifiedCount) {
+    throw new BadRequest("This record is being updated. Please try again in a moment.", 409);
+  }
+  try {
+    return await task();
+  } finally {
+    await Model.updateOne({ _id: id }, { $set: { lockedUntil: null } }, { timestamps: false });
+  }
+}
+
 // Wraps an async route so thrown errors become a clean JSON response
 const route = (handler) => async (req, res) => {
   try {
     await handler(req, res);
   } catch (err) {
-    const status =
-      err.status || (["ValidationError", "CastError"].includes(err.name) ? 400 : 500);
-    if (status === 500) console.error(`${req.method} ${req.originalUrl}:`, err);
-    res.status(status).json({
-      success: false,
-      message:
-        status === 500
-          ? "Something went wrong. Please try again."
-          : err.name === "CastError"
-            ? "That record could not be found"
-            : err.message,
-    });
+    sendError(req, res, err);
   }
 };
 
@@ -46,4 +88,7 @@ async function findOwned(Model, req, id, label) {
   return doc;
 }
 
-module.exports = { round2, sum, istDate, isDateString, normaliseName, BadRequest, route, findOwned };
+module.exports = {
+  round2, sum, istDate, isDateString, normaliseName, BadRequest, route, findOwned,
+  sendError, retryOnConflict, withLock,
+};

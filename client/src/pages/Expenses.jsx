@@ -7,6 +7,7 @@ import { Spinner, EmptyState } from "../components/ui";
 import { money, rupees, shortDate } from "../lib/format";
 import { downloadCsv } from "../lib/csv";
 import { PERIODS, periodRange, todayISO } from "../lib/period";
+import { useCan } from "../context/AuthContext";
 
 const CATEGORIES = [
   "Rent", "Salary and wages", "Transport and freight", "Electricity", "Phone and internet",
@@ -81,6 +82,7 @@ function ExpenseForm({ expense, onClose, onSaved }) {
 }
 
 export default function Expenses() {
+  const can = useCan();
   const [period, setPeriod] = useState("this-month");
   const [range, setRange] = useState(() => periodRange("this-month"));
   const [data, setData] = useState(null);
@@ -136,7 +138,9 @@ export default function Expenses() {
         <button onClick={csv} disabled={!data?.expenses.length} className="btn-secondary ml-auto">
           <FileSpreadsheet className="w-4 h-4" /> Export CSV
         </button>
-        <button onClick={() => setEditing({})} className="btn-primary"><Plus className="w-4 h-4" /> Add expense</button>
+        {can("editExpenses") && (
+          <button onClick={() => setEditing({})} className="btn-primary"><Plus className="w-4 h-4" /> Add expense</button>
+        )}
       </div>
 
       {data === null ? (
@@ -170,12 +174,16 @@ export default function Expenses() {
                         <td className="td text-right whitespace-nowrap">{money(e.amount)}</td>
                         <td className="td">
                           <div className="flex justify-end gap-1">
-                            <button onClick={() => setEditing(e)} aria-label="Edit expense" className="btn btn-sm text-slate-600 hover:bg-slate-100">
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => remove(e)} aria-label="Delete expense" className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {can("editExpenses") && (
+                              <button onClick={() => setEditing(e)} aria-label="Edit expense" className="btn btn-sm text-slate-600 hover:bg-slate-100">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {can("editExpenses") && (
+                              <button onClick={() => remove(e)} aria-label="Delete expense" className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

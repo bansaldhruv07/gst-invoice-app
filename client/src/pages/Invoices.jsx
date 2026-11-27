@@ -7,11 +7,13 @@ import { money, rupees, shortDate } from "../lib/format";
 import { downloadCsv } from "../lib/csv";
 import { downloadInvoicePdf } from "../lib/invoicePdf";
 import { Spinner, EmptyState, Stats, statusStyle } from "../components/ui";
+import { useCan } from "../context/AuthContext";
 
 const STATUSES = ["all", "unpaid", "partial", "paid", "cancelled"];
 const PAGE_SIZE = 15;
 
 export default function Invoices() {
+  const can = useCan();
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [stats, setStats] = useState(null);
@@ -188,7 +190,7 @@ export default function Invoices() {
           <EmptyState
             title={filtered ? "No invoices match these filters" : "No invoices yet"}
             hint={filtered ? "Change the search, status or dates." : "Your invoices will be listed here."}
-            action={!filtered && <Link to="/invoices/create" className="btn-primary">Create your first invoice</Link>}
+            action={!filtered && can("createInvoice") && <Link to="/invoices/create" className="btn-primary">Create your first invoice</Link>}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -233,6 +235,7 @@ export default function Invoices() {
                         aria-label={`Status of ${inv.invoiceNumber}`}
                         value={inv.status}
                         onChange={(e) => changeStatus(inv._id, e.target.value)}
+                        disabled={!can("editInvoice")}
                         className={`badge pr-6 ${statusStyle(inv.status)}`}
                       >
                         {STATUSES.slice(1).map((s) => <option key={s} value={s}>{s}</option>)}

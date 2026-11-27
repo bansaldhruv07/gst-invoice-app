@@ -6,9 +6,14 @@ A modern, robust, and feature-rich Goods and Services Tax (GST) Invoice Manageme
 
 ## 🌟 Key Features
 
-### 1. **Authentication & Authorization**
-- Secure User registration and login using JSON Web Tokens (JWT) and bcrypt password hashing.
-- Role-based capabilities and session persistence.
+### 1. **Sign-in, Team Logins and Security**
+- Registration and sign-in with JSON Web Tokens and bcrypt password hashing.
+- **Team logins** (Pro plan): *billing staff* make bills and take payments but cannot edit or delete them, see costs or profit, or change the bank account on a bill; an *accountant* can read everything and change nothing. Anything not explicitly allowed is refused.
+- **Activity log** showing who changed what.
+- Password reset by email (when configured); changing a password signs out other sessions.
+- Limits on repeated sign-in attempts, security headers, and no internal error details in responses.
+- Payments, returns and receipts stay correct when requests arrive at the same moment.
+- **UPI QR** for the balance on each unpaid invoice (screen only; the printed bill is unchanged).
 
 ### 2. **Overview and Assistant**
 - Sales, money to collect, money to pay and a GST estimate, with a six-month chart and a list of what needs attention.
@@ -90,6 +95,42 @@ gst-invoice-app/
 
 ---
 
+## 🧱 How It Fits Together
+
+```mermaid
+flowchart LR
+  B[React app on Vercel] -- HTTPS + token --> A[Express API on Render]
+  A --> P{Signed in? Role allows it?}
+  P --> R[Routes]
+  R --> S[Services: GST, stock, ledger, reports, assistant]
+  S --> D[(MongoDB Atlas)]
+  R -- successful changes --> L[Activity log] --> D
+  A -. optional .-> C[Claude API]
+  A -. optional .-> M[Resend email]
+  A <-. payments and webhooks .-> Z[Razorpay]
+```
+
+Design decisions worth knowing:
+
+- **Stock is calculated** from the opening count, purchases, sales, returns and adjustments, so it cannot drift from the records.
+- **Money updates use optimistic concurrency**: if a record changed after it was read, the step runs again on the new copy. Receipts and returns, which touch several records, take a short database lock.
+- **Invoice numbers** are protected by a unique index; a request that collides waits briefly and takes the next number.
+- **Permissions live in one table** (`server/services/permissions.js`). The sign-in check enforces it, and the screens are told the same answers.
+- **The assistant only drafts.** Saving needs a second request that the user triggers.
+
+---
+
+## 🧪 Tests
+
+```bash
+cd server && npm test    # API tests against a temporary database
+cd client && npm run lint && npm test && npm run build
+```
+
+The server tests download a MongoDB binary the first time. To use one you already have, set `MONGOMS_SYSTEM_BINARY` to the path of `mongod`. GitHub Actions runs all of these on every push.
+
+---
+
 ## ⚙️ Installation & Setup
 
 ### Prerequisites
@@ -137,7 +178,13 @@ ASSISTANT_DAILY_LIMIT=60
 
 # Frontend address allowed to call the API in production
 CLIENT_URL=
+
+# Password reset by email (optional), through resend.com
+RESEND_API_KEY=
+MAIL_FROM=
 ```
+
+On a host such as Render, do **not** set `PORT`; the host provides it.
 
 Business details (name, GSTIN, bank account, logo, signature, invoice number prefix) are set by each user on the Settings page.
 
@@ -178,7 +225,13 @@ The frontend application will spin up at [http://localhost:5173](http://localhos
 ### Authentication
 - `POST /api/auth/register` — Create a new user profile
 - `POST /api/auth/login` — Sign in and get a JWT token
-- `GET /api/auth/me` — Retrieve currently logged-in user context
+- `GET /api/auth/me` — The signed-in person, their role and what they may do
+- `POST /api/auth/forgot-password`, `POST /api/auth/reset-password` — Password reset by email
+- `GET /api/auth/options` — Whether password reset is available
+
+### Team
+- `GET/POST /api/team`, `PUT/DELETE /api/team/:id` — Team logins (owner only)
+- `GET /api/activity?page=` — Activity log (owner only)
 
 ### Invoices
 - `GET /api/invoices` — List all invoices created by the authenticated user (supports search & filters)

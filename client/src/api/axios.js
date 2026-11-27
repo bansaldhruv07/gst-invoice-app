@@ -26,7 +26,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response, // pass successful responses through unchanged
   (error) => {
-    if (error.response?.status === 401) {
+    // A wrong password is answered with 401 too, and should only show a message
+    const signingIn = /\/auth\/(login|register|forgot-password|reset-password)/.test(error.config?.url || "");
+    if (error.response?.status === 401 && !signingIn) {
       // Clear auth data and redirect to login
       localStorage.removeItem("token");
       localStorage.removeItem("user");

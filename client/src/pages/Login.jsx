@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../api/axios";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -12,6 +13,13 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [canReset, setCanReset] = useState(false);
+
+  useEffect(() => {
+    api.get("/auth/options")
+      .then(({ data }) => setCanReset(data.passwordReset))
+      .catch(() => {});
+  }, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -67,6 +75,13 @@ export default function Login() {
             </button>
           </div>
         </div>
+        {canReset && (
+          <p className="text-right">
+            <Link to="/forgot-password" className="text-sm font-medium text-brand-700 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
+        )}
         <button type="submit" disabled={loading} className="btn-primary w-full h-10">
           {loading ? "Signing in…" : "Sign in"}
         </button>

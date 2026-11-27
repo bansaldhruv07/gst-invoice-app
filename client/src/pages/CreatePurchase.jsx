@@ -273,7 +273,9 @@ function SellerSelector({ selected, onSelect }) {
     try {
       const { data } = await api.get("/sellers", { params: q ? { search: q } : {} });
       setSellers(data.sellers);
-    } catch {} finally { setLoading(false); }
+    } catch {
+      // The list stays as it was; the next search tries again
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { if (open) search(query); }, [open, query, search]);
@@ -540,7 +542,7 @@ export default function CreatePurchase() {
 
   const [seller,          setSeller]          = useState(null);
   const [purchaseDate,    setPurchaseDate]    = useState(new Date().toISOString().split("T")[0]);
-  const [dueDate,         setDueDate]         = useState("");
+  const [dueDate]         = useState("");
   const [purchaseType,    setPurchaseType]    = useState("tax_invoice");
   const [taxMode,         setTaxMode]         = useState("exclusive");
   const [items,           setItems]           = useState([{...EMPTY_ITEM}]);

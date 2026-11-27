@@ -6,6 +6,7 @@ import { Download, Upload, FileSpreadsheet } from "lucide-react";
 import api from "../api/axios";
 import { downloadCsv, parseCsv } from "../lib/csv";
 import { todayISO } from "../lib/period";
+import { useCan } from "../context/AuthContext";
 
 const TEMPLATES = {
   buyers: {
@@ -118,7 +119,9 @@ function Password() {
     if (form.newPassword !== form.repeat) return toast.error("The new passwords do not match");
     setBusy(true);
     try {
-      await api.put("/auth/password", form);
+      const { data } = await api.put("/auth/password", form);
+      // Other sessions are signed out; this one carries on with the new token
+      if (data.token) localStorage.setItem("token", data.token);
       setForm(EMPTY);
       toast.success("Password changed");
     } catch (err) {
@@ -137,7 +140,7 @@ function Password() {
       ].map(([key, label, autoComplete]) => (
         <label key={key}>
           <span className="label">{label}</span>
-          <input type="password" required minLength={key === "currentPassword" ? undefined : 6} autoComplete={autoComplete}
+          <input type="password" required minLength={key === "currentPassword" ? undefined : 8} autoComplete={autoComplete}
             value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} className="input" />
         </label>
       ))}
@@ -162,22 +165,27 @@ function Block({ id, title, hint, children }) {
 
 export default function AccountSettings() {
   const { hash } = useLocation();
+  const can = useCan();
   useEffect(() => {
     if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
   }, [hash]);
 
   return (
     <div className="max-w-5xl mx-auto mt-6 border-t border-slate-200 divide-y divide-slate-200">
+      {can("import") && (
       <Block id="import" title="Import" hint="Bring buyers and products from Excel or your old software. Save the sheet as CSV. Names that already exist are skipped.">
         <div className="grid sm:grid-cols-2 gap-6">
           <Importer type="buyers" />
           <Importer type="items" />
         </div>
       </Block>
+      )}
+      {can("export") && (
       <Block id="backup" title="Backup" hint="A copy of all your records in one file. Keep it somewhere safe.">
         <Backup />
       </Block>
-      <Block id="password" title="Password" hint="At least 6 characters.">
+      )}
+      <Block id="password" title="Password" hint="At least 8 characters. Changing it signs out your other devices.">
         <Password />
       </Block>
     </div>

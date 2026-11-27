@@ -12,6 +12,13 @@ const pick = (body, keys) =>
 // All item routes require login
 router.use(protect);
 
+// Billing staff do not see what a product costs
+function visible(req, item) {
+  if (req.role !== "staff") return item;
+  const { purchasePrice: _cost, ...rest } = item.toObject();
+  return rest;
+}
+
 // ─── GET /api/items ───────────────────────────────────────────────────────────
 // Returns all items belonging to the logged-in user
 // Supports ?search=name and ?gstPercent=18 query params
@@ -37,7 +44,7 @@ router.get("/", async (req, res) => {
     res.json({
       success: true,
       count: items.length,
-      items,
+      items: items.map((item) => visible(req, item)),
     });
   } catch (err) {
     console.error("Get items error:", err.message);
@@ -61,7 +68,7 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    res.json({ success: true, item });
+    res.json({ success: true, item: visible(req, item) });
   } catch (err) {
     console.error("Get item error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
@@ -96,7 +103,7 @@ router.post("/", canAddItem, async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Item created successfully",
-      item,
+      item: visible(req, item),
     });
   } catch (err) {
     if (err.name === "ValidationError") {

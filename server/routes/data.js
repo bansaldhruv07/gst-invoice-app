@@ -28,7 +28,9 @@ router.get("/export", route(async (req, res) => {
     buyers: Buyer, sellers: Seller, products: Item, invoices: Invoice, quotations: Quotation,
     creditNotes: CreditNote, purchases: Purchase, expenses: Expense, stockAdjustments: StockAdjustment,
   };
-  const profile = await User.findById(req.user._id).select("-password -subscription -__v").lean();
+  const profile = await User.findById(req.user._id)
+    .select("-password -passwordChangedAt -subscription -resetTokenHash -resetTokenExpires -__v")
+    .lean();
   const backup = { exportedAt: new Date().toISOString(), profile };
   for (const [key, Model] of Object.entries(sets)) {
     backup[key] = await Model.find(owned).lean();
@@ -136,7 +138,8 @@ router.get("/search", route(async (req, res) => {
     Quotation.find({ user, invoiceNumber: pattern }).select("invoiceNumber grandTotal buyer")
       .populate("buyer", "name").limit(4).lean(),
     Item.find({ user, $or: [{ name: pattern }, { hsn: pattern }] }).limit(6).lean(),
-    Seller.find({ user, $or: [{ name: pattern }, { gstin: pattern }] }).limit(4).lean(),
+    // Billing staff do not see sellers
+    req.role === "staff" ? [] : Seller.find({ user, $or: [{ name: pattern }, { gstin: pattern }] }).limit(4).lean(),
   ]);
 
   const rupees = (n) => `₹${Math.round(n || 0).toLocaleString("en-IN")}`;

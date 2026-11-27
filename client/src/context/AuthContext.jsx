@@ -25,6 +25,21 @@ export function AuthProvider({ children }) {
       }
     }
     setLoading(false);
+
+    // Roles can change while someone is signed in, so ask the server again
+    if (savedToken) {
+      api.get("/auth/me")
+        .then(({ data }) => {
+          localStorage.setItem("user", JSON.stringify(data.user));
+          setUser(data.user);
+        })
+        .catch((err) => {
+          if (err.response?.status !== 403) return;
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setUser(null);
+        });
+    }
   }, []);
 
   // ── Register ──────────────────────────────────────────────────────────────
@@ -74,4 +89,10 @@ export function useAuth() {
     throw new Error("useAuth must be used inside <AuthProvider>");
   }
   return context;
+}
+// What this login may do. The server enforces it; this only hides what would be refused.
+// Usage: const can = useCan(); can("editInvoice")
+export function useCan() {
+  const { user } = useAuth();
+  return (ability) => (user?.can ? Boolean(user.can[ability]) : true);
 }

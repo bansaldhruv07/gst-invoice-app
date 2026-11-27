@@ -20,6 +20,16 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
     },
+    // Staff logins point at the business owner's account; owners have none
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    role: { type: String, enum: ["owner", "staff", "accountant"], default: "owner" },
+    disabled: { type: Boolean, default: false },
+
+    // Sign-ins issued before this moment stop working
+    passwordChangedAt: { type: Date, default: null },
+    resetTokenHash: { type: String, default: undefined, index: { sparse: true } },
+    resetTokenExpires: { type: Date, default: undefined },
+
     subscription: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subscription",
@@ -55,6 +65,7 @@ const userSchema = new mongoose.Schema(
     invoicePrefix: { type: String, default: "", uppercase: true, trim: true, maxlength: 5 },
     invoiceStartNumber: { type: Number, default: 1, min: 1, max: 99999 },
     defaultTerms: { type: String, default: "" },
+    upiId: { type: String, default: "", trim: true, maxlength: 100 },
   },
 
   {

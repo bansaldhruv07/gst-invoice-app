@@ -9,6 +9,7 @@ import { Spinner, EmptyState } from "../components/ui";
 import { UNITS, UNIT_LABELS, GST_RATES } from "../lib/units";
 import { money } from "../lib/format";
 import { todayISO } from "../lib/period";
+import { useCan } from "../context/AuthContext";
 
 const EMPTY = {
   name: "", hsn: "", unit: "pcs", price: "", purchasePrice: "", gstPercent: 18, description: "",
@@ -107,6 +108,7 @@ function ProductForm({ product, onClose, onSaved, onLimit }) {
 }
 
 export default function Products() {
+  const can = useCan();
   const [params, setParams] = useSearchParams();
   const search = params.get("search") || "";
   const [items, setItems] = useState(null);
@@ -150,8 +152,12 @@ export default function Products() {
               onChange={(e) => setParams(e.target.value ? { search: e.target.value } : {}, { replace: true })}
               className="input pl-9" />
           </div>
-          <Link to="/settings#import" className="btn-secondary"><Upload className="w-4 h-4" /> Import</Link>
-          <button onClick={() => setEditing({})} className="btn-primary"><Plus className="w-4 h-4" /> Add product</button>
+          {can("import") && (
+            <Link to="/settings#import" className="btn-secondary"><Upload className="w-4 h-4" /> Import</Link>
+          )}
+          {can("addItem") && (
+            <button onClick={() => setEditing({})} className="btn-primary"><Plus className="w-4 h-4" /> Add product</button>
+          )}
         </div>
 
         {items === null ? (
@@ -188,12 +194,16 @@ export default function Products() {
                     </td>
                     <td className="td">
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => setEditing(i)} title="Edit" aria-label={`Edit ${i.name}`} className="btn btn-sm text-slate-600 hover:bg-slate-100">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => remove(i)} title="Delete" aria-label={`Delete ${i.name}`} className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {can("editItem") && (
+                          <button onClick={() => setEditing(i)} title="Edit" aria-label={`Edit ${i.name}`} className="btn btn-sm text-slate-600 hover:bg-slate-100">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {can("editItem") && (
+                          <button onClick={() => remove(i)} title="Delete" aria-label={`Delete ${i.name}`} className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

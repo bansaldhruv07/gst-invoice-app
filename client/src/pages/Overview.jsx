@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 import { useBusiness } from "../context/BusinessContext";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, useCan } from "../context/AuthContext";
 import { useAssistant } from "../context/AssistantContext";
 import { money, rupees, shortDate, whatsappReminder } from "../lib/format";
 import { EmptyState } from "../components/ui";
@@ -27,12 +27,15 @@ const AGE_COLOURS = ["bg-brand-500", "bg-amber-400", "bg-orange-500", "bg-red-60
 
 const PROMPTS = ["Who owes me money?", "What is my current stock value?", "Top selling products this month", "How much GST do I owe?"];
 
+// Billing staff are offered only questions they may ask
+const STAFF_PROMPTS = ["Who owes me money?", "Top selling products this month", "Sales today"];
+
 const SHORTCUTS = [
-  ["New quotation", "/quotations/create", ClipboardList],
-  ["Record purchase", "/purchases/create", ShoppingCart],
-  ["Add expense", "/expenses", Wallet],
-  ["Profit report", "/reports", BarChart3],
-  ["Day book", "/reports?tab=daybook", BookOpen],
+  ["New quotation", "/quotations/create", ClipboardList, "createQuotation"],
+  ["Record purchase", "/purchases/create", ShoppingCart, "editPurchases"],
+  ["Add expense", "/expenses", Wallet, "editExpenses"],
+  ["Profit report", "/reports", BarChart3, "reports"],
+  ["Day book", "/reports?tab=daybook", BookOpen, "reports"],
 ];
 
 function greeting() {
@@ -77,7 +80,7 @@ function AskBar() {
           </button>
         </form>
         <div className="mt-3 flex flex-wrap gap-2">
-          {PROMPTS.map((p) => (
+          {(user?.role === "staff" ? STAFF_PROMPTS : PROMPTS).map((p) => (
             <button key={p} onClick={() => send(p)} className="h-8 px-3 rounded-full text-xs font-bold bg-white/15 border border-white/20 transition hover:bg-white hover:text-brand-700 hover:-translate-y-0.5">
               {p}
             </button>
@@ -150,6 +153,7 @@ function Loading() {
 export default function Overview() {
   const { business } = useBusiness();
   const { messages } = useAssistant();
+  const can = useCan();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   // Figures refresh after the assistant saves something
@@ -179,13 +183,14 @@ export default function Overview() {
   if (!data) return <Loading />;
 
   const { thisMonth, lastMonth, receivables, payables, attention, topBuyers, setup, plan, trend, lowStock, openQuotations } = data;
-  const setupPending = setup.some((s) => !s.done);
+  const setupPending = can("settings") && setup.some((s) => !s.done);
+  const { restricted } = data;
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       <AskBar />
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger">
+      <section className={`grid grid-cols-1 sm:grid-cols-2 gap-4 stagger ${restricted ? "" : "lg:grid-cols-4"}`}>
         <Figure
           to="/invoices" icon={TrendingUp} accent="bg-brand-50 text-brand-600"
           label={`Sales in ${thisMonth.label}`}
@@ -203,6 +208,8 @@ export default function Overview() {
           }
           tone={receivables.overdueCount ? "text-red-700" : ""}
         />
+        {!restricted && (
+        <>
         <Figure
           to="/purchases" icon={ArrowUpRight} accent="bg-saffron-100 text-saffron-700"
           label="To pay sellers"
@@ -215,10 +222,12 @@ export default function Overview() {
           value={Math.abs(thisMonth.netTax)}
           note={`Estimate: ${rupees(thisMonth.outputTax)} collected − ${rupees(thisMonth.inputTax)} paid`}
         />
+        </>
+        )}
       </section>
 
       <div className="flex flex-wrap gap-2">
-        {SHORTCUTS.map(([label, to, Icon]) => (
+        {SHORTCUTS.filter(([, , , need]) => can(need)).map(([label, to, Icon]) => (
           <Link key={to} to={to} className="btn-secondary btn-sm">
             <Icon className="w-3.5 h-3.5" /> {label}
           </Link>
@@ -388,7 +397,7 @@ export default function Overview() {
             </section>
           )}
 
-          {plan.invoices.limit > 0 && (
+          {plan.invoices.limit > 0 && can("plans") && (
             <section className="card px-5 py-4 text-sm">
               <div className="flex justify-between">
                 <span className="font-bold">{plan.name} plan</span>

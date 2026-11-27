@@ -4,6 +4,7 @@ const Seller  = require("../models/Seller");
 const Purchase = require("../models/Purchase");
 const { protect } = require("../middleware/auth");
 const { escapeRegex } = require("../services/invoiceNumber");
+const { sendError } = require("../services/common");
 
 router.use(protect);
 
@@ -16,7 +17,7 @@ router.get("/", async (req, res) => {
     const sellers = await Seller.find(filter).sort({ createdAt: -1 });
     res.json({ success: true, count: sellers.length, sellers });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -27,7 +28,7 @@ router.get("/:id", async (req, res) => {
     if (!seller) return res.status(404).json({ success: false, message: "Seller not found" });
     res.json({ success: true, seller });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -46,7 +47,7 @@ router.post("/", async (req, res) => {
     });
     res.status(201).json({ success: true, message: "Seller created", seller });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -61,7 +62,7 @@ router.put("/:id", async (req, res) => {
     await seller.save();
     res.json({ success: true, message: "Seller updated", seller });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -75,7 +76,7 @@ router.delete("/:id", async (req, res) => {
     if (!seller) return res.status(404).json({ success: false, message: "Seller not found" });
     res.json({ success: true, message: "Seller deleted" });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 

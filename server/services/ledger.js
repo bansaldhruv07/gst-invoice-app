@@ -3,7 +3,8 @@ const Invoice = require("../models/Invoice");
 const Purchase = require("../models/Purchase");
 const CreditNote = require("../models/CreditNote");
 const { refreshBalance } = require("./balance");
-const { round2, sum, istDate, BadRequest } = require("./common");
+const { round2, sum, istDate, BadRequest, retryOnConflict, withLock } = require("./common");
+const Buyer = require("../models/Buyer");
 
 // For a buyer, debit = they owe more; credit = they owe less.
 // For a seller, credit = we owe more; debit = we owe less.
@@ -91,8 +92,15 @@ async function buyerLedger(userId, buyer, from, to) {
   };
 }
 
-// One receipt, applied to the opening balance first and then the oldest invoices
-async function receiveFromBuyer(userId, buyer, { amount, date, mode, note }) {
+// One receipt, applied to the opening balance first and then the oldest invoices.
+// Only one receipt per buyer is processed at a time.
+async function receiveFromBuyer(userId, buyer, payment) {
+  return withLock(Buyer, buyer._id, async () =>
+    allocate(userId, await Buyer.findById(buyer._id), payment),
+  );
+}
+
+async function allocate(userId, buyer, { amount, date, mode, note }) {
   const value = round2(amount);
   if (!(value > 0)) throw new BadRequest("Enter an amount");
   const [invoices] = await buyerRecords(userId, buyer._id);
@@ -112,16 +120,25 @@ async function receiveFromBuyer(userId, buyer, { amount, date, mode, note }) {
     allocations.push({ ref: "Opening balance", amount: fromOpening });
     left = round2(left - fromOpening);
   }
-  for (const invoice of invoices) {
+  for (const { _id } of invoices) {
     if (left <= 0) break;
-    const part = Math.min(left, invoice.balanceAmount);
-    if (part <= 0) continue;
-    invoice.paymentHistory.push({ ...entry, amount: part });
-    refreshBalance(invoice);
-    await invoice.save();
-    allocations.push({ ref: invoice.invoiceNumber, amount: part });
-    left = round2(left - part);
+    // Read each bill again just before paying it
+    const paid = await retryOnConflict(async () => {
+      const invoice = await Invoice.findById(_id);
+      if (!invoice || invoice.status === "cancelled") return null;
+      const part = Math.min(left, invoice.balanceAmount);
+      if (part <= 0) return null;
+      invoice.paymentHistory.push({ ...entry, amount: part });
+      refreshBalance(invoice);
+      await invoice.save();
+      return { ref: invoice.invoiceNumber, amount: part };
+    });
+    if (!paid) continue;
+    allocations.push(paid);
+    left = round2(left - paid.amount);
   }
+  // Possible only if a bill was paid some other way during this receipt
+  if (left > 0) allocations.push({ ref: "Not applied (the bill was already paid)", amount: left });
   return allocations;
 }
 

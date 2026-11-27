@@ -176,5 +176,10 @@ const invoiceSchema = new mongoose.Schema(
 );
 
 invoiceSchema.index({ user: 1, invoiceNumber: 1 }, { unique: true });
+invoiceSchema.index({ user: 1, invoiceDate: -1 });
+invoiceSchema.index({ user: 1, buyer: 1 });
+// A save fails if someone else saved the same record first (see retryOnConflict)
+invoiceSchema.set("optimisticConcurrency", true);
+invoiceSchema.add({ lockedUntil: { type: Date, default: null, select: false } });
 
 module.exports = mongoose.model("Invoice", invoiceSchema);

@@ -4,25 +4,29 @@ import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import api from "../api/axios";
 import { ASSISTANT_NAME } from "../lib/assistant";
+import { useCan } from "../context/AuthContext";
 
+// [title, address, ability needed]
 const ACTIONS = [
-  ["New invoice", "/invoices/create"],
-  ["New quotation", "/quotations/create"],
-  ["New purchase", "/purchases/create"],
+  ["New invoice", "/invoices/create", "createInvoice"],
+  ["New quotation", "/quotations/create", "createQuotation"],
+  ["New purchase", "/purchases/create", "editPurchases"],
   ["Invoices", "/invoices"],
   ["Buyers", "/buyers"],
   ["Products", "/items"],
-  ["Stock", "/stock"],
+  ["Stock", "/stock", "stock"],
   [`Ask ${ASSISTANT_NAME}`, "/assistant"],
-  ["Expenses", "/expenses"],
-  ["Reports", "/reports"],
-  ["GST returns", "/reports?tab=gst&period=last-month"],
-  ["Day book", "/reports?tab=daybook"],
+  ["Expenses", "/expenses", "expenses"],
+  ["Reports", "/reports", "reports"],
+  ["GST returns", "/reports?tab=gst&period=last-month", "reports"],
+  ["Day book", "/reports?tab=daybook", "reports"],
+  ["Team", "/team", "team"],
   ["Settings", "/settings"],
-].map(([title, to]) => ({ type: "Go to", title, to }));
+].map(([title, to, need]) => ({ type: "Go to", title, to, need }));
 
 export default function CommandPalette({ onClose }) {
   const navigate = useNavigate();
+  const can = useCan();
   const [query, setQuery] = useState("");
   const [found, setFound] = useState({ q: "", results: [] });
   const [active, setActive] = useState(0);
@@ -43,7 +47,9 @@ export default function CommandPalette({ onClose }) {
     };
   }, [q]);
 
-  const matches = ACTIONS.filter((a) => a.title.toLowerCase().includes(q.toLowerCase()));
+  const matches = ACTIONS.filter(
+    (a) => (!a.need || can(a.need)) && a.title.toLowerCase().includes(q.toLowerCase()),
+  );
   const results = [...(q.length >= 2 && found.q === q ? found.results : []), ...matches];
   const selected = Math.min(active, results.length - 1);
 

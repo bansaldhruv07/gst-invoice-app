@@ -105,5 +105,7 @@ const purchaseSchema = new mongoose.Schema(
 );
 
 purchaseSchema.index({ user: 1, purchaseNumber: 1 }, { unique: true });
+purchaseSchema.index({ user: 1, purchaseDate: -1 });
+purchaseSchema.set("optimisticConcurrency", true);
 
 module.exports = mongoose.model("Purchase", purchaseSchema);

@@ -14,6 +14,7 @@ const { stateCodeFor } = require("./states");
 const { istDate, BadRequest } = require("./common");
 
 const TTL = 30 * 60 * 1000;
+const { canUseTool, roleOf } = require("./permissions");
 const drafts = new Map(); // held in memory: cleared when the server restarts
 
 const rupees = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -122,6 +123,11 @@ async function saveBill(req, draft, isQuote) {
 // Removes the draft first so that two quick clicks cannot save it twice
 async function confirmDraft(req, id) {
   const draft = getDraft(req.user, id);
+  // The role is checked again here: preparing a draft and saving it are separate requests
+  const tool = draft.type === "quotation" ? "draft_invoice" : `draft_${draft.type}`;
+  if (!canUseTool(roleOf(req.user), tool)) {
+    throw new BadRequest("Your login does not have access to that", 403);
+  }
   drafts.delete(String(id));
   try {
     return await savers[draft.type](req, draft);

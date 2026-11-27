@@ -8,7 +8,7 @@ const { canCreateInvoice } = require("../middleware/checkPlan");
 const { nextInvoiceNumber, escapeRegex } = require("../services/invoiceNumber");
 const { buildDocument, createNumbered } = require("../services/documents");
 const { refreshBalance, AUTO_PAID_NOTE } = require("../services/balance");
-const { round2, BadRequest, route, findOwned } = require("../services/common");
+const { round2, BadRequest, route, findOwned, retryOnConflict } = require("../services/common");
 
 // All invoice routes require login
 router.use(protect);
@@ -143,6 +143,11 @@ router.put("/:id/status", route(async (req, res) => {
   if (!["unpaid", "partial", "paid", "cancelled"].includes(status)) {
     throw new BadRequest("Invalid status. Must be: unpaid, partial, paid, or cancelled");
   }
+  const invoice = await retryOnConflict(() => changeStatus(req, status));
+  res.json({ success: true, message: `Invoice marked as ${invoice.status}`, invoice });
+}));
+
+async function changeStatus(req, status) {
   const invoice = await findOwned(Invoice, req, req.params.id, "Invoice");
 
   if (status === "cancelled") {
@@ -162,9 +167,8 @@ router.put("/:id/status", route(async (req, res) => {
     refreshBalance(invoice);
   }
   await invoice.save();
-
-  res.json({ success: true, message: `Invoice marked as ${invoice.status}`, invoice });
-}));
+  return invoice;
+}
 
 // ─── POST /api/invoices/:id/payment ──────────────────────────────────────────
 router.post("/:id/payment", route(async (req, res) => {
@@ -172,22 +176,24 @@ router.post("/:id/payment", route(async (req, res) => {
   const amount = Number(req.body.amount);
   if (!(amount > 0)) throw new BadRequest("Payment amount must be greater than 0");
 
-  const invoice = await findOwned(Invoice, req, req.params.id, "Invoice");
-  if (invoice.status === "cancelled") {
-    throw new BadRequest("Cannot record payment for a cancelled invoice");
-  }
-  if (amount > invoice.balanceAmount + 0.001) {
-    throw new BadRequest("Payment is more than the balance due");
-  }
-
-  invoice.paymentHistory.push({
-    amount: round2(amount),
-    date: date ? new Date(date) : new Date(),
-    mode: mode || "upi",
-    note: note || "",
+  // Two payments recorded at once: the second re-reads the new balance first
+  const invoice = await retryOnConflict(async () => {
+    const invoice = await findOwned(Invoice, req, req.params.id, "Invoice");
+    if (invoice.status === "cancelled") {
+      throw new BadRequest("Cannot record payment for a cancelled invoice");
+    }
+    if (amount > invoice.balanceAmount + 0.001) {
+      throw new BadRequest("Payment is more than the balance due");
+    }
+    invoice.paymentHistory.push({
+      amount: round2(amount),
+      date: date ? new Date(date) : new Date(),
+      mode: mode || "upi",
+      note: note || "",
+    });
+    refreshBalance(invoice);
+    return invoice.save();
   });
-  refreshBalance(invoice);
-  await invoice.save();
 
   res.json({
     success: true,

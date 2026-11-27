@@ -7,6 +7,7 @@ const Subscription = require("../models/Subscription");
 const User         = require("../models/User");
 const { protect }  = require("../middleware/auth");
 const { getUserPlan } = require("../middleware/checkPlan");
+const { sendError } = require("../services/common");
 
 // ─── Razorpay instance ────────────────────────────────────────────────────────
 // Created on first use, so missing keys don't stop the whole server from starting
@@ -40,7 +41,7 @@ router.get("/plans", async (req, res) => {
     const plans = await Plan.find({ isActive: true }).sort({ price: 1 });
     res.json({ success: true, plans });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -86,7 +87,7 @@ router.get("/me", protect, async (req, res) => {
       usage:        sub.usage,
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -167,7 +168,7 @@ router.post("/create-order", protect, async (req, res) => {
     });
   } catch (err) {
     console.error("Create order error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -285,7 +286,7 @@ router.post("/verify-payment", protect, async (req, res) => {
     });
   } catch (err) {
     console.error("Verify payment error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 
@@ -321,7 +322,7 @@ router.post("/cancel", protect, async (req, res) => {
       message: `Subscription cancelled. Access continues until ${sub.currentPeriodEnd?.toDateString()}.`,
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    sendError(req, res, err);
   }
 });
 

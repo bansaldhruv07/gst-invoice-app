@@ -130,6 +130,11 @@ export default function Chat({ autoFocus, onNavigate, large }) {
   const endRef = useRef(null);
   const inputRef = useRef(null);
   const initial = (user?.name || "?").charAt(0).toUpperCase();
+  const starters = STARTERS.filter((s) =>
+    user?.role === "staff" ? !["Stock value", "Add expense"].includes(s.title)
+      : user?.role === "accountant" ? !s.edit
+        : true,
+  );
 
   useEffect(() => {
     if (messages.length) endRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -169,7 +174,7 @@ export default function Chat({ autoFocus, onNavigate, large }) {
               <p className="mt-1 text-slate-500">Ask about your business, or tell me what to write.</p>
             </div>
             <div className="mt-6 grid grid-cols-2 gap-2.5 stagger">
-              {STARTERS.map((s) => (
+              {starters.map((s) => (
                 <button key={s.title} type="button" onClick={() => choose(s)} className="card card-lift p-3 text-left">
                   <s.icon className="w-4 h-4 text-brand-600" />
                   <span className="mt-2 block text-sm font-bold text-slate-800">{s.title}</span>

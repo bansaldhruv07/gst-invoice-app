@@ -11,6 +11,7 @@ import { money, shortDate } from "../lib/format";
 import { downloadCsv } from "../lib/csv";
 import { downloadStatementPdf } from "../lib/statementPdf";
 import { todayISO } from "../lib/period";
+import { useCan } from "../context/AuthContext";
 
 function ReceiveForm({ buyer, outstanding, openInvoices, onClose, onSaved }) {
   const [form, setForm] = useState({ amount: outstanding.total, date: todayISO(), mode: "upi", note: "" });
@@ -96,6 +97,7 @@ function ReceiveForm({ buyer, outstanding, openInvoices, onClose, onSaved }) {
 }
 
 export default function Ledger({ kind }) {
+  const can = useCan();
   const { id } = useParams();
   const navigate = useNavigate();
   const { business } = useBusiness();
@@ -170,12 +172,14 @@ export default function Ledger({ kind }) {
         <button onClick={pdf} className="btn-secondary"><Download className="w-4 h-4" /> Statement PDF</button>
         {isBuyer && (
           <>
-            {due > 0 && (
+            {due > 0 && can("recordPayment") && (
               <button onClick={() => setReceiving(true)} className="btn-secondary">
                 <IndianRupee className="w-4 h-4" /> Receive payment
               </button>
             )}
-            <Link to={`/invoices/create?buyer=${party._id}`} className="btn-primary"><Plus className="w-4 h-4" /> New invoice</Link>
+            {can("createInvoice") && (
+              <Link to={`/invoices/create?buyer=${party._id}`} className="btn-primary"><Plus className="w-4 h-4" /> New invoice</Link>
+            )}
           </>
         )}
       </div>

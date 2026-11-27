@@ -21,14 +21,17 @@ const compact = (n) =>
 export default function TrendChart({ data }) {
   const [hover, setHover] = useState(null);
   const [asTable, setAsTable] = useState(false);
-  const top = ceiling(Math.max(...data.flatMap((d) => SERIES.map(([k]) => d[k]))));
+  // Some logins are not sent purchases and expenses
+  const series = SERIES.filter(([key]) => data[0]?.[key] !== undefined);
+  const withExpenses = data[0]?.expenses !== undefined;
+  const top = ceiling(Math.max(...data.flatMap((d) => series.map(([k]) => d[k]))));
 
   return (
     <section className="card">
       <div className="card-head">
         <h2 className="card-title">Last six months</h2>
         <div className="flex items-center gap-4">
-          {!asTable && SERIES.map(([key, label, colour]) => (
+          {!asTable && series.map(([key, label, colour]) => (
             <span key={key} className="flex items-center gap-1.5 text-xs text-slate-600">
               <span className="w-2.5 h-2.5 rounded-sm" style={{ background: colour }} /> {label}
             </span>
@@ -44,18 +47,16 @@ export default function TrendChart({ data }) {
           <thead>
             <tr>
               <th className="th">Month</th>
-              <th className="th text-right">Sales</th>
-              <th className="th text-right">Purchases</th>
-              <th className="th text-right">Expenses</th>
+              {series.map(([key, label]) => <th key={key} className="th text-right">{label}</th>)}
+              {withExpenses && <th className="th text-right">Expenses</th>}
             </tr>
           </thead>
           <tbody>
             {data.map((d) => (
               <tr key={d.month}>
                 <td className="td">{d.label}</td>
-                <td className="td text-right">{rupees(d.sales)}</td>
-                <td className="td text-right">{rupees(d.purchases)}</td>
-                <td className="td text-right">{rupees(d.expenses)}</td>
+                {series.map(([key]) => <td key={key} className="td text-right">{rupees(d[key])}</td>)}
+                {withExpenses && <td className="td text-right">{rupees(d.expenses)}</td>}
               </tr>
             ))}
           </tbody>
@@ -80,14 +81,14 @@ export default function TrendChart({ data }) {
                     key={d.month}
                     tabIndex={0}
                     role="img"
-                    aria-label={`${d.label}: sales ${rupees(d.sales)}, purchases ${rupees(d.purchases)}`}
+                    aria-label={`${d.label}: ${series.map(([key, label]) => `${label} ${rupees(d[key])}`).join(", ")}`}
                     onMouseEnter={() => setHover(i)}
                     onMouseLeave={() => setHover(null)}
                     onFocus={() => setHover(i)}
                     onBlur={() => setHover(null)}
                     className={`relative flex-1 flex items-end justify-center gap-0.5 rounded-t-lg transition-colors ${hover === i ? "bg-brand-50" : ""}`}
                   >
-                    {SERIES.map(([key, , colour], s) => (
+                    {series.map(([key, , colour], s) => (
                       <div
                         key={key}
                         className="w-1/4 max-w-[1.5rem] rounded-t origin-bottom animate-grow"
@@ -106,8 +107,8 @@ export default function TrendChart({ data }) {
                         }`}
                       >
                         <p className="font-bold">{d.label}</p>
-                        {SERIES.map(([key, label]) => <p key={key}>{label}: {rupees(d[key])}</p>)}
-                        <p>Expenses: {rupees(d.expenses)}</p>
+                        {series.map(([key, label]) => <p key={key}>{label}: {rupees(d[key])}</p>)}
+                        {withExpenses && <p>Expenses: {rupees(d.expenses)}</p>}
                       </div>
                     )}
                   </div>

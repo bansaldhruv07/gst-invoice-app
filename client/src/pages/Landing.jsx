@@ -280,7 +280,7 @@ function Pricing() {
   return (
     <section id="pricing" ref={ref} className="scroll-mt-20 max-w-6xl mx-auto px-5 py-20 text-center">
       <h2 className="reveal text-3xl sm:text-4xl font-bold text-slate-900">Start free. Pay when you grow.</h2>
-      <p className="reveal mt-3 text-slate-600">Every plan includes the same features. Plans differ in how much you can add.</p>
+      <p className="reveal mt-3 text-slate-600">Plans differ mainly in how much you can add.</p>
       {plans.length === 0 ? (
         <Link to="/register" className="reveal btn-primary mt-8">Create a free account</Link>
       ) : (
@@ -291,7 +291,7 @@ function Pricing() {
               <h3 className="font-bold">{p.displayName}</h3>
               <p className="mt-3 text-4xl font-bold tabular">{rupees(p.price)}<span className={`text-sm font-medium ${i === 1 ? "text-brand-200" : "text-slate-400"}`}> /month</span></p>
               <ul className={`mt-5 mb-6 space-y-2 text-sm ${i === 1 ? "text-brand-100" : "text-slate-600"}`}>
-                {[limit(p.limits.invoicesPerMonth, "invoices a month"), limit(p.limits.buyers, "buyers"), limit(p.limits.items, "products")].map((t) => (
+                {[limit(p.limits.invoicesPerMonth, "invoices a month"), limit(p.limits.buyers, "buyers"), limit(p.limits.items, "products"), ...(p.features?.multiUser ? ["Staff logins and activity log"] : [])].map((t) => (
                   <li key={t} className="flex items-center gap-2"><Check className="w-4 h-4" strokeWidth={3} /> {t}</li>
                 ))}
               </ul>
