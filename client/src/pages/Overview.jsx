@@ -35,8 +35,8 @@ const SHORTCUTS = [
   ["New quotation", "/quotations/create", ClipboardList, "createQuotation"],
   ["Record purchase", "/purchases/create", ShoppingCart, "editPurchases"],
   ["Add expense", "/expenses", Wallet, "editExpenses"],
-  ["Profit report", "/reports", BarChart3, "reports"],
-  ["Day book", "/reports?tab=daybook", BookOpen, "reports"],
+  ["Profit report", "/reports?report=profit", BarChart3, "reports"],
+  ["Day book", "/reports?report=daybook", BookOpen, "reports"],
 ];
 
 function greeting() {
@@ -256,7 +256,7 @@ export default function Overview() {
           note={count(payables.count, "open bill")}
         />
         <Figure
-          to="/reports?tab=gst" icon={Landmark} accent="bg-emerald-50 text-emerald-700"
+          to="/reports?report=gstr3b" icon={Landmark} accent="bg-emerald-50 text-emerald-700"
           label={thisMonth.netTax < 0 ? "GST credit this month" : "GST payable this month"}
           value={Math.abs(thisMonth.netTax)}
           note={`Estimate: ${rupees(thisMonth.outputTax)} collected − ${rupees(thisMonth.inputTax)} paid`}

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 import AuthShell from "../components/AuthShell";
+import { startPage } from "../lib/startPage";
 
 const FIELDS = [
   { name: "name", label: "Your name", type: "text", autoComplete: "name" },
@@ -47,9 +48,9 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await register(form.name, form.email, form.password, form.mobile);
+      const { user } = await register(form.name, form.email, form.password, form.mobile);
       toast.success("Account created");
-      navigate("/dashboard");
+      navigate(startPage(user));
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not create the account");
     } finally {

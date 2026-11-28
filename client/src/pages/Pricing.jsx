@@ -99,7 +99,7 @@ export default function Pricing() {
 
             toast.success(`You are now on the ${plan.displayName} plan`);
             await refresh(); // refresh subscription context
-            navigate("/dashboard");
+            navigate("/");
           } catch {
             toast.error("Payment received, but the plan was not activated. Contact support.");
           } finally {

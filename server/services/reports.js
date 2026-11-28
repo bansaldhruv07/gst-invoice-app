@@ -363,4 +363,4 @@ async function dayBook(userId, from, to) {
   };
 }
 
-module.exports = { summaryReport, gstReport, dayBook, claimsCredit };
+module.exports = { summaryReport, gstReport, dayBook, claimsCredit, loadPeriod, placeOfSupply };

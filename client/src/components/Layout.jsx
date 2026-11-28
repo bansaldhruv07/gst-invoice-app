@@ -11,6 +11,7 @@ import { useSubscription } from "../context/SubscriptionContext";
 import { ASSISTANT_NAME } from "../lib/assistant";
 import { useCan } from "../context/AuthContext";
 import { SHOW_ASSISTANT } from "../lib/flags";
+import { MenuContext } from "./mobile/menu";
 
 const TITLES = [
   [/^\/team/, "Team"],
@@ -47,6 +48,7 @@ function Shell() {
   const [navOpen, setNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
+  const openMenu = useCallback(() => setNavOpen(true), []);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -127,7 +129,9 @@ function Shell() {
         <main className="relative flex-1 overflow-y-auto p-4 lg:p-6">
           {/* Room at the bottom so the floating button never covers content */}
           <div key={pathname} className={`animate-rise ${onAssistant ? "h-full" : !SHOW_ASSISTANT ? "" : writing || hasBar ? "lg:pb-20" : "pb-20"}`}>
-            <Outlet />
+            <MenuContext.Provider value={openMenu}>
+              <Outlet />
+            </MenuContext.Provider>
           </div>
         </main>
       </div>
