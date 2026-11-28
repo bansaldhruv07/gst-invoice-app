@@ -24,7 +24,6 @@ export const INCLUDED = [
   "Payment tracking and WhatsApp reminders",
   "Stock with low-stock warnings",
   "Purchases and expenses",
-  "Worker attendance and monthly pay",
   "Reports and GST working sheets",
   "CSV import and a full backup",
 ];

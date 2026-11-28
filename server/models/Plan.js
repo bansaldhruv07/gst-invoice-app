@@ -16,6 +16,7 @@ const planSchema = new mongoose.Schema({
     invoicesPerMonth: { type: Number, default: 10 },
     buyers:           { type: Number, default: 5  },
     items:            { type: Number, default: 10 },
+    workers:          { type: Number, default: 0  }, // attendance and wages
   },
 
   // Feature flags

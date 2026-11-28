@@ -29,6 +29,8 @@ function sendError(req, res, err) {
   if (status >= 500) console.error(`${req.method} ${req.originalUrl}:`, err);
   res.status(status).json({
     success: false,
+    // Set when a higher plan would allow the request
+    ...(err.upgrade && { upgrade: true }),
     message:
       status >= 500
         ? "Something went wrong. Please try again."

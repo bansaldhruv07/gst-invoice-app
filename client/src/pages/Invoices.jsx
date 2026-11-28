@@ -187,7 +187,8 @@ export default function Invoices() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
-      <PageBar title="Invoices" back="/dashboard">
+      {/* The app opens here, so phones get the main menu rather than a back arrow */}
+      <PageBar title="Invoices" menu>
         {can("createInvoice") && (
           <Link to="/invoices/create" className="btn-primary btn-sm"><Plus className="w-3.5 h-3.5" /> New invoice</Link>
         )}

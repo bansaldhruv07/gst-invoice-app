@@ -43,8 +43,8 @@ export const FEATURES = [
     points: [
       "Present, half day, absent or leave in one tap",
       "Daily wage or monthly salary",
-      "Advances and payments recorded",
-      "Monthly sheet to download",
+      "Money taken in advance, with its date",
+      "Month report to download (Starter and Growth plans)",
     ],
     Scene: AttendanceScene,
     duration: 7000,

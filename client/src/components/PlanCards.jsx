@@ -10,6 +10,7 @@ const points = (plan) => [
   count(plan.limits.invoicesPerMonth, "invoices a month"),
   count(plan.limits.buyers, "buyers"),
   count(plan.limits.items, "products"),
+  ...(plan.limits.workers ? [`Attendance and pay for ${plan.limits.workers === -1 ? "unlimited" : plan.limits.workers} workers`] : []),
   ...(plan.features?.multiUser ? ["Staff logins and activity log"] : []),
 ];
 

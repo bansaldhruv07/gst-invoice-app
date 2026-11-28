@@ -4,7 +4,7 @@
 // updated once. Changes made directly in the database are kept until then.
 const Plan = require("../models/Plan");
 
-const VERSION = 2;
+const VERSION = 3;
 
 // Features every plan has
 const COMMON = {
@@ -22,15 +22,15 @@ const COMMON = {
 const PLANS = [
   {
     name: "free", displayName: "Free", price: 0, listPrice: 0, yearlyPrice: 0,
-    limits: { invoicesPerMonth: 20, buyers: 10, items: 10 }, features: COMMON, isActive: true,
+    limits: { invoicesPerMonth: 20, buyers: 10, items: 10, workers: 0 }, features: COMMON, isActive: true,
   },
   {
     name: "starter", displayName: "Starter", price: 499, listPrice: 699, yearlyPrice: 4999,
-    limits: { invoicesPerMonth: 100, buyers: 50, items: 50 }, features: COMMON, isActive: true,
+    limits: { invoicesPerMonth: 100, buyers: 50, items: 50, workers: 2 }, features: COMMON, isActive: true,
   },
   {
     name: "growth", displayName: "Growth", price: 799, listPrice: 1299, yearlyPrice: 7999,
-    limits: { invoicesPerMonth: -1, buyers: -1, items: -1 },
+    limits: { invoicesPerMonth: -1, buyers: -1, items: -1, workers: -1 },
     features: { ...COMMON, multiUser: true }, isActive: true,
   },
 ];
@@ -57,6 +57,8 @@ async function seedPlans() {
     changed += 1;
   }
   const retired = await Plan.updateMany({ name: { $in: RETIRED }, isActive: true }, { isActive: false });
+  // The retired top plan included everything, so it keeps any number of workers
+  await Plan.updateMany({ name: { $in: RETIRED } }, { "limits.workers": -1 });
   if (changed || retired.modifiedCount) console.log("✅ Plans updated");
 }
 
