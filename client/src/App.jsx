@@ -12,6 +12,7 @@ import AssistantPage from "./pages/AssistantPage";
 import Attendance from "./pages/Attendance";
 import TryInvoice from "./pages/TryInvoice";
 import { SHOW_ASSISTANT } from "./lib/flags";
+import { startPage } from "./lib/startPage";
 import Register from "./pages/Register";
 import Overview from "./pages/Overview";
 import Invoices from "./pages/Invoices";
@@ -49,7 +50,7 @@ function ProtectedRoute({ children }) {
 }
 
 // ─── Public Route wrapper ─────────────────────────────────────────────────────
-// Redirects to /dashboard if already logged in
+// Redirects into the app if already logged in
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
 
@@ -61,7 +62,7 @@ function PublicRoute({ children }) {
     );
   }
 
-  return !user ? children : <Navigate to="/dashboard" replace />;
+  return !user ? children : <Navigate to={startPage(user)} replace />;
 }
 
 // Sends a login that may not use a screen back to the overview
@@ -70,11 +71,11 @@ function Allow({ ability, children }) {
   return can(ability) ? children : <Navigate to="/dashboard" replace />;
 }
 
-// Visitors see the home page; signed-in users go straight to their overview
+// Visitors see the home page; signed-in users go straight to a new invoice
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  return user ? <Navigate to="/dashboard" replace /> : <Landing />;
+  return user ? <Navigate to={startPage(user)} replace /> : <Landing />;
 }
 
 export default function App() {

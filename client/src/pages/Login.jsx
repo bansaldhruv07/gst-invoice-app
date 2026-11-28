@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 import AuthShell from "../components/AuthShell";
+import { startPage } from "../lib/startPage";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -27,8 +28,8 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await login(form.email, form.password);
-      navigate("/dashboard");
+      const { user } = await login(form.email, form.password);
+      navigate(startPage(user));
     } catch (err) {
       toast.error(err.response?.data?.message || (err.response ? "Could not sign in" : "Could not reach the server. Check your internet and try again."));
     } finally {

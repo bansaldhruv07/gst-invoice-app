@@ -16,6 +16,7 @@ A modern, robust, and feature-rich Goods and Services Tax (GST) Invoice Manageme
 - **UPI QR** for the balance on each unpaid invoice (screen only; the printed bill is unchanged).
 
 ### 2. **Home page and Overview**
+- Signed-in users open on the **new invoice** screen (an accountant opens the invoice list). The overview is in the menu.
 - A public home page at `/` with an animation of a bill being made, the bill designs and the plans.
 - **Free bill maker** at `/try`: one bill without an account, to download or share. It runs entirely in the browser.
 - Sales, money to collect, money to pay and a GST estimate, with a six-month chart and a list of what needs attention.
@@ -102,6 +103,7 @@ gst-invoice-app/
 - **Party statements** with PDF and CSV, opening balances, credit limits, and one receipt spread over the oldest bills.
 - **Stock** worked out from opening count, purchases, sales, returns and adjustments, with low-stock warnings.
 - **Worker attendance**: present, half day, absent or leave; daily wage or monthly salary worked out, with advances and payments.
+- **Reports**: party-wise and product-wise sales and purchases, GST sales and purchase reports, GSTR-1, GSTR-2 and GSTR-3B working sheets, current stock, and debtor and creditor ledgers, each with CSV export.
 - **Expenses**, an estimated **profit** report, **day book**, and **GSTR-1 / GSTR-3B working sheets** (not a filed return).
 - **CSV import** of buyers and products, full JSON **backup**, quick search with Ctrl+K.
 
@@ -274,7 +276,8 @@ The frontend application will spin up at [http://localhost:5173](http://localhos
 - `GET /api/stock`, `GET /api/stock/:itemId/history`, `POST /api/stock/adjust`
 - `GET/POST /api/expenses`, `PUT/DELETE /api/expenses/:id`
 - `GET /api/ledger/buyer/:id`, `POST /api/ledger/buyer/:id/receive`, `GET /api/ledger/seller/:id`
-- `GET /api/reports/summary|gst|daybook?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /api/reports/summary|sales|purchases|gst|gstr2|daybook?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /api/reports/stock`, `GET /api/reports/outstanding` — current stock, and debtors and creditors, as of now
 - `GET /api/data/export`, `POST /api/data/import/buyers|items`, `GET /api/data/search?q=`
 - `PUT /api/auth/password`
 
