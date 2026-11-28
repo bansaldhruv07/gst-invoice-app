@@ -222,9 +222,11 @@ const toProfile = (user) =>
     Object.entries(PROFILE_FIELDS).map(([key, field]) => [key, user[field] ?? ""]),
   );
 
-router.get("/supplier-info", protect, (req, res) => {
-  res.json({ success: true, supplier: toProfile(req.user) });
-});
+router.get("/supplier-info", protect, route(async (req, res) => {
+  // Read again, because the sign-in check leaves the pictures out
+  const user = await User.findById(req.user._id).lean();
+  res.json({ success: true, supplier: toProfile(user) });
+}));
 
 router.put("/supplier-info", protect, route(async (req, res) => {
   const user = await User.findById(req.user._id);

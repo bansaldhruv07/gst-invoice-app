@@ -50,6 +50,7 @@ router.get("/plans", async (req, res) => {
 router.get("/me", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
+      .select("subscription")
       .populate({
         path:     "subscription",
         populate: { path: "plan" },

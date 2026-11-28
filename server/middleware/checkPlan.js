@@ -22,7 +22,7 @@ function isEntitled(sub) {
 
 // ─── Helper: get user's active plan + limits ──────────────────────────────────
 async function getUserPlan(userId) {
-  const user = await User.findById(userId).populate({
+  const user = await User.findById(userId).select("subscription").populate({
     path:     "subscription",
     populate: { path: "plan" },
   });
