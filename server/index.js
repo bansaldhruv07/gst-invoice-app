@@ -12,6 +12,12 @@ if (!process.env.JWT_SECRET) fail("JWT_SECRET is not set");
 const PORT = process.env.PORT || "5000";
 if (!/^\d{1,5}$/.test(PORT)) fail("PORT must be a number. On Render, delete the PORT variable.");
 
+if (process.env.JWT_SECRET.length < 32) {
+  console.warn("⚠️  JWT_SECRET is short. Use at least 32 random characters.");
+}
+// One failed background task must not take the whole server down
+process.on("unhandledRejection", (err) => console.error("Unhandled error:", err));
+
 const mongoose = require("mongoose");
 const app = require("./app");
 const { seedPlans } = require("./services/seedPlans");

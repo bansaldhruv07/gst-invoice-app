@@ -41,3 +41,10 @@ test("the form and the server agree on many kinds of line", async () => {
     });
   }
 });
+
+test("the browser and the server offer the same bill designs and colours", async () => {
+  const client = await import("../../client/src/lib/billDesigns.js");
+  const here = require("../services/billDesigns");
+  assert.deepEqual(client.TEMPLATES.map((t) => t.id), here.BILL_TEMPLATES);
+  assert.deepEqual(client.COLORS.map((c) => c.id), here.BILL_COLORS);
+});

@@ -153,7 +153,7 @@ test("a backup never contains password data", async () => {
 
 test("one business cannot manage another's team or records", async () => {
   const other = await app.register();
-  await app.givePlan(other.id, "pro");
+  await app.givePlan(other.id, "growth");
   assert.equal(await status(other, "PUT", `/team/${staff.id}`, { disabled: true }), 404);
   assert.equal(await status(other, "DELETE", `/team/${staff.id}`), 404);
   assert.equal(await status(other, "GET", `/invoices/${invoice._id}`), 404);
@@ -182,7 +182,7 @@ test("pausing, role changes and plan lapses take effect at once", async () => {
 
   await app.givePlan(s.owner.id, "starter");
   assert.equal(await status(staff, "GET", "/invoices"), 403);
-  await app.givePlan(s.owner.id, "pro");
+  await app.givePlan(s.owner.id, "growth");
   assert.equal(await status(staff, "GET", "/invoices"), 200);
 
   await app.call("DELETE", `/team/${staff.id}`, { token: s.token });

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   Check, ChevronRight, MessageCircle, TrendingUp, ArrowDownLeft, ArrowUpRight, Landmark, SendHorizonal,
-  ClipboardList, ShoppingCart, Wallet, BarChart3, BookOpen,
+  ClipboardList, ShoppingCart, Wallet, BarChart3, BookOpen, FilePlus2, UserPlus, CalendarCheck, PackagePlus,
 } from "lucide-react";
 import api from "../api/axios";
 import { useBusiness } from "../context/BusinessContext";
@@ -14,6 +14,7 @@ import TrendChart from "../components/TrendChart";
 import { Spark } from "../components/Logo";
 import { useCountUp } from "../hooks/motion";
 import { ASSISTANT_NAME } from "../lib/assistant";
+import { SHOW_ASSISTANT } from "../lib/flags";
 
 const SEVERITY = {
   high: { dot: "bg-red-600", ring: "bg-red-50", label: "Urgent" },
@@ -84,6 +85,44 @@ function AskBar() {
             <button key={p} onClick={() => send(p)} className="h-8 px-3 rounded-full text-xs font-bold bg-white/15 border border-white/20 transition hover:bg-white hover:text-brand-700 hover:-translate-y-0.5">
               {p}
             </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const QUICK = [
+  ["New invoice", "/invoices/create", FilePlus2, "createInvoice"],
+  ["Add buyer", "/buyers", UserPlus, "addBuyer"],
+  ["Add product", "/items", PackagePlus, "addItem"],
+  ["Mark attendance", "/attendance", CalendarCheck, "editWorkers"],
+];
+
+// The greeting with the things done most often
+function Welcome() {
+  const { user } = useAuth();
+  const can = useCan();
+  const actions = QUICK.filter(([, , , need]) => can(need));
+  return (
+    <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-900 px-5 py-6 sm:px-8 sm:py-7 text-white shadow-xl">
+      <div aria-hidden="true" className="absolute -top-20 right-10 w-64 h-64 rounded-full bg-white/10 blur-2xl animate-float" />
+      <div aria-hidden="true" className="absolute -bottom-24 right-1/3 w-56 h-56 rounded-full bg-brand-300/30 blur-3xl animate-float [animation-delay:2s]" />
+      <div className="relative">
+        <h2 className="text-2xl sm:text-3xl font-bold">
+          {greeting()}, {user?.name?.split(" ")[0]}
+        </h2>
+        <p className="mt-1 text-brand-100">
+          {actions.length ? "What would you like to do?" : "Here is how the business is doing."}
+        </p>
+        <div className="mt-4 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+          {actions.map(([label, to, Icon], i) => (
+            <Link key={to} to={to}
+              className={`flex items-center gap-2 h-11 px-4 rounded-xl text-sm font-bold transition hover:-translate-y-0.5 ${
+                i === 0 ? "bg-white text-brand-700 shadow-lg" : "bg-white/15 border border-white/20 hover:bg-white hover:text-brand-700"
+              }`}>
+              <Icon className="w-4 h-4 flex-shrink-0" /> {label}
+            </Link>
           ))}
         </div>
       </div>
@@ -188,7 +227,7 @@ export default function Overview() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
-      <AskBar />
+      {SHOW_ASSISTANT ? <AskBar /> : <Welcome />}
 
       <section className={`grid grid-cols-1 sm:grid-cols-2 gap-4 stagger ${restricted ? "" : "lg:grid-cols-4"}`}>
         <Figure

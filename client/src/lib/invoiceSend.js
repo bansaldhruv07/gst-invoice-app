@@ -37,10 +37,15 @@ export async function printBill(invoice, copies) {
   document.body.appendChild(frame);
 }
 
+const ATTACH = "The PDF was downloaded. Attach it where you want to send it.";
+
 export async function shareBill(invoice, copies, toast) {
-  if (canSharePdf()) return shareInvoicePdf(invoice, copies);
+  if (canSharePdf()) {
+    if (!(await shareInvoicePdf(invoice, copies))) toast(ATTACH);
+    return;
+  }
   await downloadBill(invoice, copies, toast);
-  toast("The PDF was downloaded. Attach it where you want to send it.");
+  toast(ATTACH);
 }
 
 const mailLink = (invoice, subject, body) =>
@@ -48,7 +53,10 @@ const mailLink = (invoice, subject, body) =>
 
 // Phones hand the PDF to the mail app. Computers cannot attach it for you.
 export async function emailBill(invoice, business, toast) {
-  if (canSharePdf() && window.matchMedia("(pointer: coarse)").matches) return shareInvoicePdf(invoice);
+  if (canSharePdf() && window.matchMedia("(pointer: coarse)").matches) {
+    if (!(await shareInvoicePdf(invoice))) toast(ATTACH);
+    return;
+  }
   await downloadBill(invoice, ["recipient"], toast);
   const body = [
     `Dear ${invoice.buyer?.name || "Sir/Madam"},`,

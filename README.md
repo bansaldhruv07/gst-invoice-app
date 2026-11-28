@@ -1,33 +1,32 @@
 # 📊 GST Invoice App (Full-Stack MERN Application)
 
-A modern, robust, and feature-rich Goods and Services Tax (GST) Invoice Management System. Built using the **MERN** stack (MongoDB, Express, React, Node.js), this application enables businesses to seamlessly generate GST-compliant invoices, track purchases, manage clients (buyers) and inventory (items), monitor sales/expense metrics on a dynamic dashboard, and subscribe to premium tiers using **Razorpay**.
+A modern, robust, and feature-rich Goods and Services Tax (GST) Invoice Management System. Built using the **MERN** stack (MongoDB, Express, React, Node.js), this application enables businesses to seamlessly generate GST-compliant invoices, track purchases, manage clients (buyers) and inventory (items), mark worker attendance, monitor sales and expenses on a dashboard, and subscribe to paid plans using **Razorpay**.
 
 ---
 
 ## 🌟 Key Features
 
 ### 1. **Sign-in, Team Logins and Security**
-- Registration and sign-in with JSON Web Tokens and bcrypt password hashing.
-- **Team logins** (Pro plan): *billing staff* make bills and take payments but cannot edit or delete them, see costs or profit, or change the bank account on a bill; an *accountant* can read everything and change nothing. Anything not explicitly allowed is refused.
+- Registration and sign-in with JSON Web Tokens and bcrypt password hashing. People sign in with **email or mobile number** and a password (SMS codes are not used).
+- **Team logins** (Growth plan): *billing staff* make bills and take payments but cannot edit or delete them, see costs or profit, or change the bank account on a bill; an *accountant* can read everything and change nothing. Anything not explicitly allowed is refused.
 - **Activity log** showing who changed what.
 - Password reset by email (when configured); changing a password signs out other sessions.
-- Limits on repeated sign-in attempts, security headers, and no internal error details in responses.
+- Limits on repeated sign-in attempts and on requests overall, refusal of query operators and oversized input, easy passwords refused, security headers and a content security policy, and no internal error details in responses.
 - Payments, returns and receipts stay correct when requests arrive at the same moment.
 - **UPI QR** for the balance on each unpaid invoice (screen only; the printed bill is unchanged).
 
-### 2. **Overview and Assistant**
+### 2. **Home page and Overview**
+- A public home page at `/` with an animation of a bill being made, the bill designs and the plans.
+- **Free bill maker** at `/try`: one bill without an account, to download or share. It runs entirely in the browser.
 - Sales, money to collect, money to pay and a GST estimate, with a six-month chart and a list of what needs attention.
-- **Munshi**, a chat assistant: "Create invoice for Raj Traders with Laptop of Rs.25,000 + tax", "What is my current stock value?", "Who owes me money?".
-- It only prepares drafts. A bill, quotation, payment, expense, buyer or product is saved when you press the button on the card.
-- Works without any AI key using built-in commands (English and some Hinglish). With `ANTHROPIC_API_KEY` set, Claude answers and understands free-form requests.
-- A public home page at `/` for visitors who are not signed in.
+- A chat assistant is in the code but **switched off**. To bring it back, set `SHOW_ASSISTANT` in `client/src/lib/flags.js` and `ASSISTANT_ENABLED=true` on the server.
 
 ### 3. **GST-Compliant Invoicing**
 - Dynamic tax calculation engine:
   - Automatically splits tax into **CGST + SGST** if the Buyer is in the same state as the Seller/Supplier.
   - Applies **IGST** if the Buyer is in a different state.
 - Supports HSN/SAC codes, discount structures, and custom GST rates (e.g., 5%, 12%, 18%, 28%).
-- Generates the PDF tax invoice in the browser with `jspdf`. The printed format is defined in `client/src/lib/invoiceLayout.js`.
+- Generates the PDF in the browser with `jspdf`, in **four designs**: Classic (`client/src/lib/invoiceLayout.js`) and Modern, Minimal and Elegant (`client/src/lib/themedLayout.js`) in six colours. The home page pictures in `client/src/assets/bills` are printed from `client/src/lib/sampleBill.js`.
 - **Bill form in sections:** type, date and number; supplier, buyer, consignee, products, transport, other details, bank, terms and signature.
 - Each product line can have its own tax-inclusive setting, discount and CESS. The form (`client/src/lib/gst.js`) and the server (`server/services/gst.js`) are tested to give the same totals.
 - **Preview screen** shows the bill itself (drawn with `pdf.js`), with Original, Duplicate and Triplicate copies, print, download, share, payment and a menu for the rest.
@@ -43,7 +42,15 @@ A modern, robust, and feature-rich Goods and Services Tax (GST) Invoice Manageme
 - **Items (Inventory) Database**: Record product/service names, description, HSN/SAC codes, base prices, units, and default GST rates.
 
 ### 6. **Subscription Management (Razorpay Integration)**
-- Tiered plans: **Free**, **Pro**, and **Premium** with usage limits (e.g., invoices per month, buyers limit, items limit).
+- Three plans, billed monthly or yearly. They are defined in `server/services/seedPlans.js`; raise `VERSION` there after changing one.
+
+| Plan | Monthly | Yearly | Invoices a month | Buyers | Products |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Free | ₹0 | ₹0 | 20 | 10 | 10 |
+| Starter | ₹499 (regular ₹699) | ₹4,999 | 100 | 50 | 50 |
+| Growth | ₹799 (regular ₹1,299) | ₹7,999 | Unlimited | Unlimited | Unlimited, with team logins |
+
+- The regular price is shown struck out as a launch offer. Show it only if you will charge it when the offer ends; set `listPrice` equal to `price` to remove it.
 - Live Razorpay checkout integration with secure webhook handling to sync subscription states.
 
 ---
@@ -94,6 +101,7 @@ gst-invoice-app/
 - **Edit and duplicate** invoices; **sales returns** as credit notes.
 - **Party statements** with PDF and CSV, opening balances, credit limits, and one receipt spread over the oldest bills.
 - **Stock** worked out from opening count, purchases, sales, returns and adjustments, with low-stock warnings.
+- **Worker attendance**: present, half day, absent or leave; daily wage or monthly salary worked out, with advances and payments.
 - **Expenses**, an estimated **profit** report, **day book**, and **GSTR-1 / GSTR-3B working sheets** (not a filed return).
 - **CSV import** of buyers and products, full JSON **backup**, quick search with Ctrl+K.
 
@@ -106,11 +114,10 @@ flowchart LR
   B[React app on Vercel] -- HTTPS + token --> A[Express API on Render]
   A --> P{Signed in? Role allows it?}
   P --> R[Routes]
-  R --> S[Services: GST, stock, ledger, reports, assistant]
+  R --> S[Services: GST, stock, ledger, reports, payroll]
   S --> D[(MongoDB Atlas)]
   R -- successful changes --> L[Activity log] --> D
-  A -. optional .-> C[Claude API]
-  A -. optional .-> M[Resend email]
+  A -. optional .-> M[Resend or Brevo email]
   A <-. payments and webhooks .-> Z[Razorpay]
 ```
 
@@ -120,7 +127,7 @@ Design decisions worth knowing:
 - **Money updates use optimistic concurrency**: if a record changed after it was read, the step runs again on the new copy. Receipts and returns, which touch several records, take a short database lock.
 - **Invoice numbers** are protected by a unique index; a request that collides waits briefly and takes the next number.
 - **Permissions live in one table** (`server/services/permissions.js`). The sign-in check enforces it, and the screens are told the same answers.
-- **The assistant only drafts.** Saving needs a second request that the user triggers.
+- **Request limits are kept in memory**, so they restart with the server and apply to each server separately.
 
 ---
 
@@ -174,17 +181,13 @@ RAZORPAY_KEY_ID=rzp_test_yourKeyId
 RAZORPAY_KEY_SECRET=yourSecretKey
 RAZORPAY_WEBHOOK_SECRET=yourWebhookSecretString
 
-# Assistant (optional). Leave the key blank to use the built-in commands.
-# With a key, questions are answered by Claude (a paid API).
-ANTHROPIC_API_KEY=
-ASSISTANT_MODEL=claude-opus-5-5
-ASSISTANT_DAILY_LIMIT=60
-
 # Frontend address allowed to call the API in production
 CLIENT_URL=
 
-# Password reset by email (optional), through resend.com
+# Password reset by email. Use Resend (needs your own domain) or Brevo (a
+# verified sender address is enough). CLIENT_URL must be set as well.
 RESEND_API_KEY=
+BREVO_API_KEY=
 MAIL_FROM=
 ```
 
@@ -228,7 +231,8 @@ The frontend application will spin up at [http://localhost:5173](http://localhos
 
 ### Authentication
 - `POST /api/auth/register` — Create a new user profile
-- `POST /api/auth/login` — Sign in and get a JWT token
+- `POST /api/auth/login` — Sign in with `{ login, password }`, where login is an email or mobile number
+- `PUT /api/auth/mobile` — Set or remove your sign-in mobile number
 - `GET /api/auth/me` — The signed-in person, their role and what they may do
 - `POST /api/auth/forgot-password`, `POST /api/auth/reset-password` — Password reset by email
 - `GET /api/auth/options` — Whether password reset is available
@@ -255,11 +259,14 @@ The frontend application will spin up at [http://localhost:5173](http://localhos
 - `POST /api/purchases` — Record a new purchase entry
 - `DELETE /api/purchases/:id` — Delete a purchase entry
 
-### Overview & Assistant
+### Overview
 - `GET /api/insights` — Dues, GST estimate and items needing attention
-- `GET /api/assistant/status` — Which engine is active (`basic` or `claude`)
-- `POST /api/assistant/chat` — Streams replies and result cards about the signed-in user's business
-- `POST /api/assistant/confirm` — Saves a draft the user approved (plan limits apply)
+
+### Attendance
+- `GET /api/workers?month=YYYY-MM` — Workers with their marks, pay and payments
+- `POST /api/workers`, `PUT/DELETE /api/workers/:id`
+- `PUT /api/workers/attendance` — Mark one day
+- `POST /api/workers/:id/payments`, `DELETE /api/workers/:id/payments/:paymentId`
 
 ### Sales, stock and reports
 - `GET/POST /api/quotations`, `PUT/DELETE /api/quotations/:id`, `POST /api/quotations/:id/convert`

@@ -2,12 +2,17 @@
 // Set MONGOMS_SYSTEM_BINARY to use an installed mongod instead of downloading one.
 const { MongoMemoryServer } = require("mongodb-memory-server-core");
 
-async function start() {
-  const database = await MongoMemoryServer.create();
+// The chat assistant is on in tests, so its rules stay covered while it is
+// switched off on the live site. `assistant: false` starts the app as it ships.
+async function start({ assistant = true } = {}) {
+  // A busy machine can take longer than the usual ten seconds to start it
+  const database = await MongoMemoryServer.create({ instance: { launchTimeout: 60000 } });
   Object.assign(process.env, {
     JWT_SECRET: "test-secret-that-is-long-enough",
     CLIENT_URL: "http://localhost:5173",
+    ASSISTANT_ENABLED: assistant ? "true" : "",
     ANTHROPIC_API_KEY: "",
+    BREVO_API_KEY: "",
     RAZORPAY_KEY_ID: "",
     RAZORPAY_KEY_SECRET: "",
     RAZORPAY_WEBHOOK_SECRET: "webhook-secret",
@@ -70,7 +75,7 @@ async function start() {
   // An owner on the top plan with one buyer and one tracked product
   async function shop() {
     const owner = await register();
-    await givePlan(owner.id, "pro");
+    await givePlan(owner.id, "growth");
     const token = owner.token;
     const buyer = (await call("POST", "/buyers", { token, body: { name: "Verma Hardware", state: "Delhi" } })).data.buyer;
     const item = (await call("POST", "/items", {

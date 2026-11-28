@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
 import api from "../api/axios";
 import { streamChat, asHistory } from "../lib/assistant";
+import { SHOW_ASSISTANT } from "../lib/flags";
 
 const AssistantContext = createContext(null);
 const MIN_THINKING_MS = 550; // lets the typing dots register before an instant reply
@@ -21,6 +22,7 @@ export function AssistantProvider({ children }) {
   }, [messages]);
 
   useEffect(() => {
+    if (!SHOW_ASSISTANT) return undefined;
     api.get("/assistant/status")
       .then(({ data }) => setEngine(data.engine))
       .catch(() => {});

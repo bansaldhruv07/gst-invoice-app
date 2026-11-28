@@ -51,18 +51,21 @@ function loadImage(url) {
   });
 }
 
-// The bill with the chosen copies, ready to preview, print or save
-export async function makeInvoicePdf(invoice, copies) {
+// The bill with the chosen copies, ready to preview, print or save. A design
+// ({ template, color }) is given only to preview one before it is saved.
+export async function makeInvoicePdf(invoice, copies, design) {
   return buildDocument(copies?.length ? { ...invoice, printCopies: copies } : invoice, {
     suffix: copies?.length > 1 ? "All" : { transporter: "Dup", supplier: "Tri" }[copies?.[0]] || "Org",
+    ...design,
   });
 }
 
 async function buildDocument(record, options = {}) {
-  const [{ data }, { default: jsPDF }, layout, fonts] = await Promise.all([
+  const [{ data }, { default: jsPDF }, layout, { renderBill }, fonts] = await Promise.all([
     api.get("/auth/supplier-info"),
     import("jspdf"),
     import("./invoiceLayout.js"),
+    import("./renderBill.js"),
     loadFonts(),
   ]);
   const supplier = data.supplier;
@@ -73,7 +76,15 @@ async function buildDocument(record, options = {}) {
 
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   layout.registerFonts(doc, fonts);
-  layout.renderInvoice(doc, { invoice: record, supplier, logo, signature, ...options });
+  renderBill(doc, {
+    template: supplier.template,
+    color: supplier.color,
+    invoice: record,
+    supplier,
+    logo,
+    signature,
+    ...options,
+  });
 
   return {
     doc,
@@ -105,14 +116,23 @@ export function canSharePdf() {
   }
 }
 
-export async function shareInvoicePdf(invoice, copies) {
-  const { doc, fileName } = await makeInvoicePdf(invoice, copies);
+// Offers a PDF to the device's share sheet. If the device refuses, the file is
+// saved instead and false is returned.
+export async function sharePdf(doc, fileName, title) {
   const file = new File([doc.output("blob")], fileName, { type: "application/pdf" });
   try {
-    await navigator.share({ files: [file], title: invoice.invoiceNumber });
+    await navigator.share({ files: [file], title });
   } catch (err) {
-    if (err.name !== "AbortError") throw err; // closing the share sheet is fine
+    if (err.name === "AbortError") return true; // closing the share sheet is fine
+    doc.save(fileName);
+    return false;
   }
+  return true;
+}
+
+export async function shareInvoicePdf(invoice, copies) {
+  const { doc, fileName } = await makeInvoicePdf(invoice, copies);
+  return sharePdf(doc, fileName, invoice.invoiceNumber);
 }
 
 export async function downloadQuotationPdf(quotationOrId) {

@@ -25,7 +25,7 @@ const ROLES = {
 const message = (err, fallback) => err.response?.data?.message || fallback;
 
 function MemberForm({ onClose, onSaved }) {
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "staff" });
+  const [form, setForm] = useState({ name: "", email: "", mobile: "", password: "", role: "staff" });
   const [saving, setSaving] = useState(false);
   const bind = (key) => ({
     value: form[key],
@@ -37,7 +37,7 @@ function MemberForm({ onClose, onSaved }) {
     setSaving(true);
     try {
       await api.post("/team", form);
-      toast.success("Login added. Give them the email and password.");
+      toast.success("Login added. Give them the email or mobile number, and the password.");
       onSaved();
       onClose();
     } catch (err) {
@@ -58,6 +58,9 @@ function MemberForm({ onClose, onSaved }) {
       <div className="space-y-4">
         <Field label="Name"><input required autoFocus {...bind("name")} /></Field>
         <Field label="Email" note="They sign in with this."><input required type="email" autoComplete="off" {...bind("email")} /></Field>
+        <Field label="Mobile number" note="Optional. They can sign in with it.">
+          <input type="tel" inputMode="tel" maxLength={15} autoComplete="off" {...bind("mobile")} />
+        </Field>
         <Field label="Password" note="At least 8 characters. They can change it in Settings.">
           <input required minLength={8} maxLength={72} type="text" autoComplete="off" {...bind("password")} />
         </Field>
@@ -164,7 +167,7 @@ function Members() {
         <div className="card flex flex-wrap items-center gap-3 p-5">
           <Lock className="w-5 h-5 text-saffron-700" />
           <p className="flex-1 min-w-[14rem] text-sm text-slate-600">
-            Team logins come with the Pro plan{data.members.length > 0 && ". Existing logins are paused until you renew"}.
+            Team logins come with the Growth plan{data.members.length > 0 && ". Existing logins are paused until you renew"}.
           </p>
           <Link to="/pricing" className="btn-primary">See plans</Link>
         </div>
@@ -193,7 +196,7 @@ function Members() {
                     {m.name}
                     {m.disabled && <span className="ml-2 badge bg-slate-100 text-slate-500 border-slate-200">Paused</span>}
                   </p>
-                  <p className="text-xs text-slate-500 break-all">{m.email}</p>
+                  <p className="text-xs text-slate-500 break-all">{[m.email, m.mobile].filter(Boolean).join(" · ")}</p>
                 </div>
                 <select aria-label={`Role of ${m.name}`} value={m.role} className="input w-auto"
                   onChange={(e) => change(m, { role: e.target.value }, "Role changed")}>

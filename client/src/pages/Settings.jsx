@@ -7,6 +7,7 @@ import { STATE_OPTIONS, GST_STATES, stateCodeFor } from "../lib/states";
 import { defaultTerms } from "../lib/terms";
 import { Spinner, EmptyState } from "../components/ui";
 import AccountSettings from "../components/AccountSettings";
+import BillDesignPicker from "../components/BillDesignPicker";
 import { useCan } from "../context/AuthContext";
 
 // Scales an uploaded image down so it stays small enough to store with the profile
@@ -202,6 +203,13 @@ function SettingsForm({ business, onSaved }) {
         <Field label="UPI ID" wide note="Shows a payment QR on every unpaid invoice screen. It is not printed on the bill.">
           <input placeholder="shopname@bank" maxLength={100} {...bind("upiId", (v) => v.trim())} />
         </Field>
+      </Section>
+
+      <Section title="Bill design" hint="How your invoices, quotations and credit notes look when printed.">
+        <div className="sm:col-span-2">
+          <BillDesignPicker template={form.template || "classic"} color={form.color || "blue"}
+            onChange={(next) => setForm((f) => ({ ...f, ...next }))} />
+        </div>
       </Section>
 
       <Section title="Invoice preferences" hint="Numbering and the terms printed at the foot of the bill.">

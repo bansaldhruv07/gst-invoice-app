@@ -26,7 +26,8 @@ export default function PdfPreview({ blob, label }) {
     const draw = async () => {
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
       pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-      task = pdfjs.getDocument({ data: await blob.arrayBuffer() });
+      // Nothing in a bill needs the PDF to run code
+      task = pdfjs.getDocument({ data: await blob.arrayBuffer(), isEvalSupported: false });
       const pdf = await task.promise;
       const sharp = Math.min(window.devicePixelRatio || 1, 2.5);
       const canvases = [];

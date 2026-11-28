@@ -97,20 +97,23 @@ router.get("/me", protect, async (req, res) => {
 router.post("/create-order", protect, async (req, res) => {
   try {
     const { planId } = req.body;
+    const period = req.body.period === "yearly" ? "yearly" : "monthly";
 
     const plan = await Plan.findById(planId);
-    if (!plan || plan.price === 0) {
+    if (!plan || !plan.isActive || plan.price === 0 || (period === "yearly" && !plan.yearlyPrice)) {
       return res.status(400).json({
         success: false,
         message: "Invalid plan",
       });
     }
+    const price = period === "yearly" ? plan.yearlyPrice : plan.price;
 
     if (!paymentsConfigured()) return paymentsUnavailable(res);
 
     // ── Option A: Razorpay Subscription (auto-debit monthly) ──────────────
-    // Use this if you have Razorpay route activation approved
-    if (plan.razorpayPlanId) {
+    // Use this if you have Razorpay route activation approved. A year is paid
+    // for once.
+    if (plan.razorpayPlanId && period === "monthly") {
       const rzpSubscription = await getRazorpay().subscriptions.create({
         plan_id:         plan.razorpayPlanId,
         total_count:     12, // 12 billing cycles (1 year)
@@ -140,13 +143,14 @@ router.post("/create-order", protect, async (req, res) => {
 
     // ── Option B: One-time order (simpler, works without route activation) ─
     const order = await getRazorpay().orders.create({
-      amount:   plan.price * 100, // Razorpay takes paise
+      amount:   price * 100, // Razorpay takes paise
       currency: "INR",
       receipt:  `receipt_${req.user._id}_${Date.now()}`,
       notes: {
         userId:   req.user._id.toString(),
         planId:   plan._id.toString(),
         planName: plan.name,
+        period,
       },
     });
 
@@ -159,7 +163,7 @@ router.post("/create-order", protect, async (req, res) => {
       keyId:    process.env.RAZORPAY_KEY_ID,
       plan: {
         name:  plan.displayName,
-        price: plan.price,
+        price,
       },
       user: {
         name:  req.user.name,
@@ -216,7 +220,9 @@ router.post("/verify-payment", protect, async (req, res) => {
       ? await Plan.findOne({ razorpayPlanId: record.plan_id })
       : await Plan.findById(record.notes.planId);
 
-    if (!plan || (!razorpay_subscription_id && record.amount !== plan.price * 100)) {
+    const period = !razorpay_subscription_id && record.notes.period === "yearly" ? "yearly" : "monthly";
+    const price = plan && (period === "yearly" ? plan.yearlyPrice : plan.price);
+    if (!plan || (!razorpay_subscription_id && record.amount !== price * 100)) {
       return res.status(400).json({
         success: false,
         message: "Payment does not match a current plan",
@@ -233,15 +239,30 @@ router.post("/verify-payment", protect, async (req, res) => {
     }
 
     // ── Activate subscription ──────────────────────────────────────────────
-    const now       = new Date();
-    const periodEnd = new Date(now);
-    periodEnd.setMonth(periodEnd.getMonth() + 1); // 1 month from now
+    const now = new Date();
 
     // Find existing subscription or create new one
     let sub = await Subscription.findOne({ user: req.user._id });
 
+    // Paying again for the same plan adds to the time already paid for
+    const left = sub && String(sub.plan) === String(plan._id) && sub.status !== "expired" &&
+      sub.currentPeriodEnd > now;
+    const periodEnd = new Date(left ? sub.currentPeriodEnd : now);
+    if (period === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    else periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+    // An earlier automatic payment must stop, or the buyer is charged twice
+    if (sub?.razorpaySubscriptionId && sub.razorpaySubscriptionId !== razorpay_subscription_id) {
+      try {
+        await getRazorpay().subscriptions.cancel(sub.razorpaySubscriptionId);
+      } catch (e) {
+        console.error("Razorpay cancel error:", e.error?.description || e.message);
+      }
+    }
+
     if (sub) {
       // Upgrade / renew
+      sub.billingPeriod          = period;
       sub.plan                   = plan._id;
       sub.status                 = "active";
       sub.currentPeriodStart     = now;
@@ -249,7 +270,8 @@ router.post("/verify-payment", protect, async (req, res) => {
       sub.razorpaySubscriptionId = razorpay_subscription_id || "";
       sub.payments.push({
         razorpayPaymentId: razorpay_payment_id,
-        amount:            plan.price,
+        amount:            price,
+        period,
         status:            "captured",
         paidAt:            now,
       });
@@ -258,6 +280,7 @@ router.post("/verify-payment", protect, async (req, res) => {
         user:                  req.user._id,
         plan:                  plan._id,
         status:                "active",
+        billingPeriod:         period,
         currentPeriodStart:    now,
         currentPeriodEnd:      periodEnd,
         razorpaySubscriptionId: razorpay_subscription_id || "",
@@ -267,7 +290,8 @@ router.post("/verify-payment", protect, async (req, res) => {
         },
         payments: [{
           razorpayPaymentId: razorpay_payment_id,
-          amount:            plan.price,
+          amount:            price,
+          period,
           status:            "captured",
           paidAt:            now,
         }],

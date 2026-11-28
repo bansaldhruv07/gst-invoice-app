@@ -6,7 +6,7 @@ import { Download, Upload, FileSpreadsheet } from "lucide-react";
 import api from "../api/axios";
 import { downloadCsv, parseCsv } from "../lib/csv";
 import { todayISO } from "../lib/period";
-import { useCan } from "../context/AuthContext";
+import { useAuth, useCan } from "../context/AuthContext";
 
 const TEMPLATES = {
   buyers: {
@@ -151,6 +151,49 @@ function Password() {
   );
 }
 
+function Mobile() {
+  const { user, updateUser } = useAuth();
+  const [mobile, setMobile] = useState(user?.mobile || "");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const { data } = await api.put("/auth/mobile", { mobile, currentPassword: password });
+      updateUser(data.user);
+      setMobile(data.user.mobile);
+      setPassword("");
+      toast.success(data.message);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not save the number");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="grid sm:grid-cols-3 gap-4">
+      <label>
+        <span className="label">Mobile number</span>
+        <input type="tel" inputMode="tel" autoComplete="tel-national" maxLength={15} placeholder="98765 43210"
+          value={mobile} onChange={(e) => setMobile(e.target.value)} className="input" />
+      </label>
+      <label>
+        <span className="label">Your password</span>
+        <input type="password" required autoComplete="current-password" value={password}
+          onChange={(e) => setPassword(e.target.value)} className="input" />
+      </label>
+      <div className="flex items-end">
+        <button type="submit" disabled={busy || mobile === (user?.mobile || "")} className="btn-secondary">
+          {busy ? "Saving…" : "Save number"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function Block({ id, title, hint, children }) {
   return (
     <section id={id} className="grid lg:grid-cols-[15rem_1fr] gap-x-8 gap-y-3 py-6">
@@ -185,6 +228,9 @@ export default function AccountSettings() {
         <Backup />
       </Block>
       )}
+      <Block id="mobile" title="Mobile sign-in" hint="Sign in with your mobile number and password, as well as with your email.">
+        <Mobile />
+      </Block>
       <Block id="password" title="Password" hint="At least 8 characters. Changing it signs out your other devices.">
         <Password />
       </Block>

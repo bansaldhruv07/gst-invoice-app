@@ -16,9 +16,12 @@ import {
   Boxes,
   BarChart3,
   UserCog,
+  CalendarCheck,
+  Plus,
 } from "lucide-react";
 import { Logo, Spark } from "./Logo";
 import { ASSISTANT_NAME } from "../lib/assistant";
+import { SHOW_ASSISTANT } from "../lib/flags";
 
 const NAV = [
   { items: [{ label: "Overview", icon: LayoutGrid, to: "/dashboard" }] },
@@ -48,6 +51,7 @@ const NAV = [
   {
     heading: "Business",
     items: [
+      { label: "Attendance", icon: CalendarCheck, to: "/attendance", need: "workers" },
       { label: "Reports", icon: BarChart3, to: "/reports", need: "reports" },
       { label: "Team", icon: UserCog, to: "/team", need: "team" },
       { label: "Settings", icon: Settings, to: "/settings" },
@@ -80,19 +84,24 @@ export default function Sidebar({ open, onNavigate }) {
         <span className="text-lg font-bold text-slate-900 tracking-tight">GST Invoice</span>
       </div>
 
+      {(SHOW_ASSISTANT || can("createInvoice")) && (
       <div className="px-3 pb-2">
         <NavLink
-          to="/assistant"
+          to={SHOW_ASSISTANT ? "/assistant" : "/invoices/create"}
           onClick={onNavigate}
           className={({ isActive }) =>
             `group flex items-center gap-2.5 h-11 px-3 rounded-xl text-sm font-bold text-white transition hover:-translate-y-px
              bg-gradient-to-r from-brand-600 to-brand-500 shadow-glow ${isActive ? "ring-4 ring-brand-100" : ""}`
           }
         >
-          <Spark className="w-4 h-4 transition-transform duration-500 group-hover:rotate-90" />
-          Ask {ASSISTANT_NAME}
+          {SHOW_ASSISTANT ? (
+            <><Spark className="w-4 h-4 transition-transform duration-500 group-hover:rotate-90" /> Ask {ASSISTANT_NAME}</>
+          ) : (
+            <><Plus className="w-4 h-4 transition-transform duration-500 group-hover:rotate-90" /> New invoice</>
+          )}
         </NavLink>
       </div>
+      )}
 
       <nav className="flex-1 overflow-y-auto px-3 py-2">
         {groups.map((group, i) => (

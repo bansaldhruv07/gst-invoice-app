@@ -2,7 +2,7 @@
 // start it on their own.
 const express = require("express");
 const cors = require("cors");
-const { securityHeaders } = require("./middleware/security");
+const { securityHeaders, generalLimit, refuseHostileInput } = require("./middleware/security");
 const { sendError } = require("./services/common");
 
 const app = express();
@@ -11,21 +11,24 @@ const app = express();
 // address the attempt limits see.
 app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
 
+// Query strings are plain names and values, never nested objects
+app.set("query parser", "simple");
+
 // ─── Middleware ────────────────────────────────────────────────────────────────
 app.use(securityHeaders);
 
 // Allow requests from your React frontend (localhost:5173 in dev)
+// The production frontend, tolerating a trailing slash in the setting. The
+// development addresses are accepted only away from the hosting service.
+const website = (process.env.CLIENT_URL || "").replace(/\/+$/, "");
+const development = process.env.RENDER ? [] : ["http://localhost:5173", "http://localhost:3000"];
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173", // Vite dev server
-      "http://localhost:3000", // fallback
-      // production frontend URL, tolerating a trailing slash in the setting
-      (process.env.CLIENT_URL || "").replace(/\/+$/, ""),
-    ].filter(Boolean),
+    origin: [...development, website].filter(Boolean),
     credentials: true,
   }),
 );
+app.use("/api", generalLimit);
 
 // Razorpay signs the exact bytes it sends, so this must run before the JSON parser
 app.use("/api/subscriptions/webhook", express.raw({ type: "application/json" }));
@@ -37,6 +40,7 @@ app.use((req, res, next) => {
   req.body ??= {};
   next();
 });
+app.use(refuseHostileInput);
 
 app.get("/", (req, res) => {
   res.send("GST Invoice API is running 🚀");
@@ -62,7 +66,8 @@ app.use("/api/subscriptions", require("./routes/subscriptions"));
 app.use("/api/sellers", require("./routes/sellers"));
 app.use("/api/purchases", require("./routes/purchases"));
 app.use("/api/insights", require("./routes/insights"));
-app.use("/api/assistant", require("./routes/assistant"));
+// The chat assistant is switched off until it is ready (ASSISTANT_ENABLED=true)
+if (process.env.ASSISTANT_ENABLED === "true") app.use("/api/assistant", require("./routes/assistant"));
 app.use("/api/quotations", require("./routes/quotations"));
 app.use("/api/credit-notes", require("./routes/creditNotes"));
 app.use("/api/stock", require("./routes/stock"));
@@ -70,6 +75,7 @@ app.use("/api/expenses", require("./routes/expenses"));
 app.use("/api/ledger", require("./routes/ledger"));
 app.use("/api/reports", require("./routes/reports"));
 app.use("/api/data", require("./routes/data"));
+app.use("/api/workers", require("./routes/workers"));
 app.use("/api/team", team);
 app.use("/api/activity", activity);
 

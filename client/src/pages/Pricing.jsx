@@ -4,8 +4,10 @@ import api from "../api/axios";
 import { useSubscription } from "../context/SubscriptionContext";
 import toast from "react-hot-toast";
 import { Check } from "lucide-react";
-import { rupees } from "../lib/format";
+import { shortDate } from "../lib/format";
 import { Spinner, EmptyState } from "../components/ui";
+import PlanCards, { PeriodSwitch } from "../components/PlanCards";
+import { INCLUDED } from "../lib/pricing";
 
 // ─── Load Razorpay script ─────────────────────────────────────────────────────
 function loadRazorpay() {
@@ -19,25 +21,14 @@ function loadRazorpay() {
   });
 }
 
-// Only list features that exist in the app
-const INCLUDED = [
-  "GST tax invoices and bills of supply as PDF",
-  "CGST, SGST and IGST worked out automatically",
-  "Payment recording and WhatsApp reminders",
-  "Purchases, sellers and GST estimate",
-  "Your logo and signature on the bill",
-  "Sales register export (CSV)",
-];
-
-const limitText = (value, noun) => (value === -1 ? `Unlimited ${noun}` : `${value} ${noun}`);
-
 export default function Pricing() {
   const navigate = useNavigate();
-  const { plan: currentPlan, refresh } = useSubscription();
+  const { plan: currentPlan, sub, refresh } = useSubscription();
 
   const [plans,   setPlans]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [paying,  setPaying]  = useState(null); // planId being processed
+  const [chosen,  setChosen]  = useState(null); // billing period picked here
 
   useEffect(() => {
     api.get("/subscriptions/plans")
@@ -46,10 +37,18 @@ export default function Pricing() {
       .finally(() => setLoading(false));
   }, []);
 
+  const paidUntil = currentPlan?.price > 0 && sub?.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+  const currentPeriod = sub?.billingPeriod || "monthly";
+  const period = chosen || (paidUntil ? currentPeriod : "monthly");
+
   // ── Handle subscribe / upgrade ─────────────────────────────────────────────
   const handleSubscribe = async (plan) => {
     if (plan.price === 0) return; // free plan — nothing to pay
-    if (currentPlan?.name === plan.name) return; // already on this plan
+    // A different plan starts today
+    if (paidUntil > new Date() && currentPlan.name !== plan.name &&
+      !window.confirm(`Your ${currentPlan.displayName} plan is paid until ${shortDate(paidUntil)}. The ${plan.displayName} plan starts today and the remaining days are not carried over. Continue?`)) {
+      return;
+    }
 
     setPaying(plan._id);
     try {
@@ -64,6 +63,7 @@ export default function Pricing() {
       // 2. Create order on backend
       const { data } = await api.post("/subscriptions/create-order", {
         planId: plan._id,
+        period,
       });
 
       // 3. Open Razorpay checkout modal
@@ -72,7 +72,7 @@ export default function Pricing() {
         amount:       data.amount,
         currency:     data.currency || "INR",
         name:         "GST Invoice",
-        description:  `${data.plan.name} plan, monthly`,
+        description:  `${data.plan.name} plan, ${period}`,
         order_id:     data.orderId,          // for order-based
         subscription_id: data.subscriptionId, // for subscription-based
         prefill: {
@@ -128,57 +128,40 @@ export default function Pricing() {
     return <EmptyState title="No plans are available right now" />;
   }
 
+  const action = (plan, featured) => {
+    const inUse = currentPlan?.name === plan.name;
+    // The plan in use can be renewed, or moved from monthly to yearly
+    const renewing = inUse && plan.price > 0 && period === "yearly";
+    return (
+      <button
+        onClick={() => handleSubscribe(plan)}
+        disabled={paying !== null || plan.price === 0 || (inUse && !renewing)}
+        className={`w-full h-11 ${featured && !inUse ? "btn-primary" : "btn-secondary"}`}
+      >
+        {paying === plan._id
+          ? "Opening payment…"
+          : renewing
+            ? currentPeriod === "yearly" ? "Add another year" : "Switch to yearly"
+            : inUse
+              ? "Current plan"
+              : plan.price === 0
+                ? "Free"
+                : `Choose ${plan.displayName}`}
+      </button>
+    );
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-5">
-      <p className="text-sm text-slate-600">
-        Prices are per month.
-        {currentPlan && <> You are on the <strong className="font-semibold">{currentPlan.displayName}</strong> plan.</>}
-      </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger">
-        {plans.map((plan) => {
-          const isCurrent = currentPlan?.name === plan.name;
-          return (
-            <section
-              key={plan._id}
-              className={`card card-lift flex flex-col p-6 ${isCurrent ? "border-brand-600 ring-2 ring-brand-600" : ""}`}
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold">{plan.displayName}</h2>
-                {isCurrent && <span className="badge bg-brand-50 text-brand-700 border-brand-200">Current</span>}
-              </div>
-              <p className="mt-3 text-4xl font-bold tabular">
-                {rupees(plan.price)}<span className="text-sm font-medium text-slate-400"> /month</span>
-              </p>
-              <ul className="mt-5 mb-6 space-y-2 text-sm text-slate-600">
-                {[
-                  limitText(plan.limits.invoicesPerMonth, "invoices a month"),
-                  limitText(plan.limits.buyers, "buyers"),
-                  limitText(plan.limits.items, "products"),
-                  ...(plan.features?.multiUser ? ["Staff logins and activity log"] : []),
-                ].map((text) => (
-                  <li key={text} className="flex items-center gap-2">
-                    <Check className="w-4 h-4 flex-shrink-0 text-brand-600" strokeWidth={3} /> {text}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => handleSubscribe(plan)}
-                disabled={isCurrent || paying !== null || plan.price === 0}
-                className={`mt-auto w-full ${plan.price === 0 ? "btn-secondary" : "btn-primary"}`}
-              >
-                {paying === plan._id
-                  ? "Opening payment…"
-                  : isCurrent
-                    ? "Current plan"
-                    : plan.price === 0
-                      ? "Free"
-                      : `Choose ${plan.displayName}`}
-              </button>
-            </section>
-          );
-        })}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-600">
+          {currentPlan && <>You are on the <strong className="font-semibold">{currentPlan.displayName}</strong> plan</>}
+          {paidUntil && paidUntil > new Date() ? `, paid until ${shortDate(paidUntil)}.` : currentPlan ? "." : ""}
+        </p>
+        <PeriodSwitch period={period} onChange={setChosen} plans={plans} />
       </div>
+
+      <PlanCards plans={plans} period={period} current={currentPlan?.name} action={action} />
 
       <section className="card p-5">
         <h2 className="text-sm font-semibold mb-3">In every plan</h2>
