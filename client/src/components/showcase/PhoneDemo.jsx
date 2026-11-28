@@ -196,7 +196,7 @@ function ShareStep() {
           </span>
         ))}
       </p>
-      <div className="relative flex-1 min-h-0 p-2.5">
+      <div className="relative flex-1 min-h-0 overflow-hidden p-2.5">
         {/* All four are loaded together, so changing between them is instant */}
         {TEMPLATES.map((t) => (
           <img key={t.id} src={billImage(t.id, SHOWN_COLOR[t.id])}

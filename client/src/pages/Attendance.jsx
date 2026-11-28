@@ -12,6 +12,9 @@ import WorkerForm from "../components/attendance/WorkerForm";
 import WorkerPayForm from "../components/attendance/WorkerPayForm";
 import WorkerSheet from "../components/attendance/WorkerSheet";
 import { STATUSES, monthName, shiftMonth } from "../components/attendance/statuses";
+import TimeRow from "../components/attendance/TimeRow";
+import HoursReport from "../components/attendance/HoursReport";
+import { formatHours, decimalHours } from "../components/attendance/hours";
 import { money, rupees, shortDate } from "../lib/format";
 import { downloadCsv } from "../lib/csv";
 import { daysMarked, advanceDetails } from "../lib/workerMonth";
@@ -34,7 +37,7 @@ export default function Attendance() {
   const [panel, setPanel] = useState(null);
 
   // The day view always loads the month of the chosen date
-  const wanted = tab === "day" ? date.slice(0, 7) : month;
+  const wanted = tab === "month" ? month : date.slice(0, 7);
 
   const load = useCallback(
     () =>
@@ -82,6 +85,16 @@ export default function Attendance() {
     load();
   };
 
+  // Saves a coming or leaving time, then shows what the server worked out
+  const saveTimes = async (w, times) => {
+    try {
+      await api.put("/workers/attendance", { date, marks: [{ worker: w._id, ...times }] });
+    } catch (err) {
+      failure(err, "Could not save the time");
+    }
+    load();
+  };
+
   const unmarked = present.filter((w) => !w.marks[date] && !w.locked);
   const counts = STATUSES.map((s) => [s, present.filter((w) => w.marks[date] === s.id).length]);
   const notMarked = present.filter((w) => !w.marks[date]).length;
@@ -91,12 +104,14 @@ export default function Attendance() {
       [
         "Name", "Work", "Pay type", "Rate", "Present", "Half days", "Absent", "Leave",
         "Absent on (day)", "Half day on (day)", "Leave on (day)",
+        "Hours", "Overtime hours", "Overtime pay",
         "Earned", "Advance taken", "Advance details", "Salary paid", "Balance",
       ],
       ...workers.map((w) => [
         w.name, w.work, w.payType === "daily" ? "Daily wage" : "Monthly salary", w.rate,
         w.summary.present, w.summary.half, w.summary.absent, w.summary.leave,
         daysMarked(w, "absent"), daysMarked(w, "half"), daysMarked(w, "leave"),
+        decimalHours(w.summary.minutes), decimalHours(w.summary.overtimeMinutes), w.summary.overtimePay,
         w.summary.earned, w.summary.advance, advanceDetails(w), w.summary.salaryPaid, w.summary.balance,
       ]),
     ]);
@@ -107,7 +122,7 @@ export default function Attendance() {
     <div className="max-w-6xl mx-auto space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="View" className="flex rounded-xl border border-slate-200 bg-white p-1">
-          {[["day", "Daily"], ["month", "Monthly pay"]].map(([key, label]) => (
+          {[["day", "Daily"], ["month", "Monthly pay"], ["hours", "Hours"]].map(([key, label]) => (
             <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
               className={`h-8 px-3.5 rounded-lg text-sm font-bold transition ${tab === key ? "bg-brand-600 text-white shadow-glow" : "text-slate-600 hover:text-brand-700"}`}>
               {label}
@@ -115,10 +130,11 @@ export default function Attendance() {
           ))}
         </div>
 
-        {tab === "day" ? (
+        {tab === "day" && (
           <input type="date" aria-label="Attendance date" value={date} max={data?.today || todayISO()}
             onChange={(e) => e.target.value && setDate(e.target.value)} className="input w-auto" />
-        ) : (
+        )}
+        {tab === "month" && (
           <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-1">
             <button onClick={() => setMonth((m) => shiftMonth(m, -1))} aria-label="Previous month" className="p-2 text-slate-600 hover:text-brand-700">
               <ChevronLeft className="w-4 h-4" />
@@ -182,6 +198,8 @@ export default function Attendance() {
             />
           )}
         </section>
+      ) : tab === "hours" ? (
+        <HoursReport />
       ) : tab === "day" ? (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -201,7 +219,8 @@ export default function Attendance() {
             ) : (
               <ul className="divide-y divide-slate-100">
                 {present.map((w) => (
-                  <li key={w._id} className="flex flex-col sm:flex-row sm:items-center gap-2.5 px-4 py-3">
+                  <li key={w._id} className="px-4 py-3 space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                     <div className="flex items-center gap-3 sm:mr-auto min-w-0 sm:flex-1">
                       <button type="button" onClick={() => setPanel({ kind: "detail", id: w._id })} className="min-w-0 mr-auto text-left">
                         <span className="flex items-center gap-1.5 text-[15px] font-bold text-slate-900">
@@ -232,6 +251,9 @@ export default function Attendance() {
                         );
                       })}
                     </div>
+                    </div>
+                    <TimeRow worker={w} day={date} today={date === (data.today || todayISO())} disabled={!editable || w.locked}
+                      onSave={(times) => saveTimes(w, times)} />
                   </li>
                 ))}
               </ul>
@@ -255,6 +277,11 @@ export default function Attendance() {
                       <span className="block text-xs text-slate-500">
                         {w.summary.worked} {w.summary.worked === 1 ? "day" : "days"} worked · {w.summary.absent} absent · {w.summary.leave} leave
                       </span>
+                      {w.summary.minutes > 0 && (
+                        <span className="block text-xs text-slate-500">
+                          {formatHours(w.summary.minutes)} worked · {formatHours(w.summary.overtimeMinutes)} overtime
+                        </span>
+                      )}
                       <span className="block text-xs text-slate-500">
                         Advance {money(w.summary.advance)} · salary paid {money(w.summary.salaryPaid)}
                       </span>
@@ -293,6 +320,12 @@ export default function Attendance() {
                           {w.name}
                         </button>
                         <span className="block text-xs text-slate-500">{payLabel(w)}</span>
+                        {w.summary.minutes > 0 && (
+                          <span className="block text-xs text-slate-500">
+                            {formatHours(w.summary.minutes)} worked
+                            {w.summary.overtimeMinutes > 0 && ` · ${formatHours(w.summary.overtimeMinutes)} overtime`}
+                          </span>
+                        )}
                       </td>
                       <td className="td text-right tabular">{w.summary.present}</td>
                       {["half", "absent", "leave"].map((status) => (
@@ -336,7 +369,7 @@ export default function Attendance() {
           </section>
           <p className="text-xs text-slate-500">
             Daily wage: present days are paid, half days pay half. Monthly salary: a day&apos;s pay is taken off for each absence,
-            half for a half day, and leave is paid. Advances are taken off what is left to pay. Tap a name for the month&apos;s
+            half for a half day, and leave is paid. Overtime is added where a rate is set. Advances are taken off what is left to pay. Tap a name for the month&apos;s
             report and PDF.
           </p>
         </>

@@ -4,7 +4,7 @@ const router = express.Router();
 const Worker = require("../models/Worker");
 const Attendance = require("../models/Attendance");
 const { protect } = require("../middleware/auth");
-const { monthSummary, daysIn } = require("../services/payroll");
+const { monthSummary, daysIn, dayHours, hoursTotals } = require("../services/payroll");
 const { readMobile } = require("../services/identity");
 const { workerPlan, coveredIds, assertRoom, assertCovered } = require("../services/workerPlan");
 const {
@@ -24,13 +24,16 @@ function readDay(value, label) {
   return value;
 }
 
-const FIELDS = ["name", "work", "payType", "rate"];
+const FIELDS = ["name", "work", "payType", "rate", "shiftHours", "breakMinutes", "overtimeRate"];
+const NUMBERS = { rate: "pay", shiftHours: "shift hours", breakMinutes: "break", overtimeRate: "overtime pay" };
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const MAX_DAYS = 366;
 
 // Copies only the fields present in the request
 function fill(worker, body) {
   for (const key of FIELDS) {
     if (body[key] === undefined) continue;
-    if (key === "rate" && !(Number(body.rate) >= 0)) throw new BadRequest("Enter the pay as a number");
+    if (NUMBERS[key] && !(Number(body[key]) >= 0)) throw new BadRequest(`Enter the ${NUMBERS[key]} as a number`);
     worker[key] = body[key];
   }
   if (body.mobile !== undefined) worker.mobile = readMobile(body.mobile);
@@ -40,7 +43,27 @@ function fill(worker, body) {
 const publicWorker = (w) => ({
   _id: w._id, name: w.name, mobile: w.mobile, work: w.work, payType: w.payType, rate: w.rate,
   joinedOn: w.joinedOn, leftOn: w.leftOn,
+  shiftHours: w.shiftHours, breakMinutes: w.breakMinutes, overtimeRate: w.overtimeRate,
 });
+
+const hasTimes = (record) => Boolean(record.inTime || record.outTime);
+
+// Each worker's records, keyed by worker id
+function byWorker(records) {
+  const map = new Map();
+  for (const r of records) {
+    const key = String(r.worker);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(r);
+  }
+  return map;
+}
+
+// Whether the plan allows a worker to be marked, edited or paid
+async function lockCheck(userId, plan) {
+  const covered = plan.limit > 0 ? await coveredIds(userId, plan.limit) : null;
+  return (w) => plan.limit === 0 || Boolean(covered && !w.leftOn && !covered.has(String(w._id)));
+}
 
 // Everyone for one month: their marks, pay earned and payments
 router.get("/", route(async (req, res) => {
@@ -53,25 +76,20 @@ router.get("/", route(async (req, res) => {
     }).lean(),
     workerPlan(req.user._id),
   ]);
-  const covered = plan.limit > 0 ? await coveredIds(req.user._id, plan.limit) : null;
-  // Whether the plan allows this worker to be marked, edited or paid
-  const locked = (w) => plan.limit === 0 || Boolean(covered && !w.leftOn && !covered.has(String(w._id)));
-
-  const marks = new Map();
-  for (const r of records) {
-    const key = String(r.worker);
-    if (!marks.has(key)) marks.set(key, {});
-    marks.get(key)[r.date] = r.status;
-  }
+  const locked = await lockCheck(req.user._id, plan);
+  const found = byWorker(records);
 
   const rows = workers
     .map((w) => {
-      const own = marks.get(String(w._id)) || {};
+      const list = found.get(String(w._id)) || [];
+      const marks = Object.fromEntries(list.map((r) => [r.date, r.status]));
+      const times = Object.fromEntries(list.filter(hasTimes).map((r) => [r.date, dayHours(w, r)]));
       return {
         ...publicWorker(w),
         locked: locked(w),
-        marks: own,
-        summary: monthSummary(w, month, own, today()),
+        marks,
+        times,
+        summary: monthSummary(w, month, marks, today(), times),
         payments: w.payments.filter((p) => p.forMonth === month),
       };
     })
@@ -94,6 +112,33 @@ router.get("/", route(async (req, res) => {
   });
 }));
 
+// Hours and overtime between two dates, day by day
+router.get("/hours", route(async (req, res) => {
+  const from = readDay(req.query.from, "first date");
+  const to = readDay(req.query.to, "last date");
+  if (from > to) throw new BadRequest("The first date is after the last date");
+  if ((Date.parse(to) - Date.parse(from)) / 86400000 >= MAX_DAYS) throw new BadRequest("Choose up to one year");
+
+  const [workers, records, plan] = await Promise.all([
+    Worker.find({ user: req.user._id }).sort({ name: 1 }),
+    Attendance.find({ user: req.user._id, date: { $gte: from, $lte: to } }).sort({ date: 1 }).lean(),
+    workerPlan(req.user._id),
+  ]);
+  const locked = await lockCheck(req.user._id, plan);
+  const found = byWorker(records);
+
+  const rows = workers
+    .map((w) => {
+      const days = (found.get(String(w._id)) || []).map((r) => ({ date: r.date, status: r.status, ...dayHours(w, r) }));
+      const counts = { present: 0, half: 0, absent: 0, leave: 0 };
+      for (const d of days) counts[d.status] += 1;
+      return { ...publicWorker(w), locked: locked(w), days, totals: { ...counts, ...hoursTotals(w, days) } };
+    })
+    .filter((w) => w.days.length || (w.joinedOn <= to && (!w.leftOn || w.leftOn >= from)));
+
+  res.json({ success: true, from, to, plan, workers: rows });
+}));
+
 router.post("/", route(async (req, res) => {
   if ((await Worker.countDocuments({ user: req.user._id })) >= MAX_WORKERS) {
     throw new BadRequest(`You can add up to ${MAX_WORKERS} workers`);
@@ -105,7 +150,8 @@ router.post("/", route(async (req, res) => {
   res.status(201).json({ success: true, worker: publicWorker(worker) });
 }));
 
-// body: { date, marks: [{ worker, status }] }; an empty status clears the day
+// body: { date, marks: [{ worker, status?, inTime?, outTime? }] }. An empty
+// status clears the day. Noting a time alone marks the person present.
 router.put("/attendance", route(async (req, res) => {
   const date = readDay(req.body.date, "date");
   if (date > today()) throw new BadRequest("Attendance cannot be marked for a coming day");
@@ -114,20 +160,56 @@ router.put("/attendance", route(async (req, res) => {
     throw new BadRequest("Choose who to mark");
   }
 
-  const mine = await Worker.find({ user: req.user._id, _id: { $in: marks.map((m) => String(m?.worker)) } });
+  const ids = marks.map((m) => String(m?.worker));
+  const [mine, existing] = await Promise.all([
+    Worker.find({ user: req.user._id, _id: { $in: ids } }),
+    Attendance.find({ user: req.user._id, date, worker: { $in: ids } }).lean(),
+  ]);
   const byId = new Map(mine.map((w) => [String(w._id), w]));
-  const writes = marks.map((mark) => {
+  const saved = new Map(existing.map((r) => [String(r.worker), r]));
+
+  const writes = marks.flatMap((mark) => {
     const worker = byId.get(String(mark?.worker));
     if (!worker) throw new BadRequest("Worker not found", 404);
     const key = { user: req.user._id, worker: worker._id, date };
-    if (!mark.status) return { deleteOne: { filter: key } };
-    if (!Attendance.STATUSES.includes(mark.status)) throw new BadRequest("Choose present, half day, absent or leave");
+    const timed = mark.inTime !== undefined || mark.outTime !== undefined;
+    if (mark.status === "" || (mark.status === undefined && !timed)) return [{ deleteOne: { filter: key } }];
+    if (mark.status !== undefined && !Attendance.STATUSES.includes(mark.status)) {
+      throw new BadRequest("Choose present, half day, absent or leave");
+    }
     if (date < worker.joinedOn) throw new BadRequest(`${worker.name} had not joined on that date`);
     if (worker.leftOn && date > worker.leftOn) throw new BadRequest(`${worker.name} had left by that date`);
-    return { updateOne: { filter: key, update: { $set: { status: mark.status } }, upsert: true } };
+
+    const before = saved.get(String(worker._id));
+    const set = {};
+    if (timed) {
+      for (const field of ["inTime", "outTime"]) {
+        const value = mark[field];
+        if (value === undefined) continue;
+        if (value !== "" && !TIME.test(value)) throw new BadRequest("Enter the time as hours and minutes");
+        set[field] = value;
+      }
+      const inTime = set.inTime ?? before?.inTime ?? "";
+      const outTime = set.outTime ?? before?.outTime ?? "";
+      if (outTime && !inTime) throw new BadRequest(`Enter the time ${worker.name} came first`);
+      // Clearing times on a day with nothing marked leaves it unmarked
+      if (!inTime && !before && mark.status === undefined) return [];
+      // Someone with a coming time was not absent
+      if (mark.status === undefined && set.inTime && (!before || ["absent", "leave"].includes(before.status))) {
+        set.status = "present";
+      }
+    }
+    if (mark.status !== undefined) {
+      set.status = mark.status;
+      if (["absent", "leave"].includes(mark.status)) Object.assign(set, { inTime: "", outTime: "" });
+    }
+    const update = { $set: set };
+    if (!set.status) update.$setOnInsert = { status: "present" };
+    return [{ updateOne: { filter: key, update, upsert: true } }];
   });
+
   await assertCovered(req.user._id, marks.map((m) => byId.get(String(m.worker))));
-  await Attendance.bulkWrite(writes);
+  if (writes.length) await Attendance.bulkWrite(writes);
   res.json({ success: true, date });
 }));
 

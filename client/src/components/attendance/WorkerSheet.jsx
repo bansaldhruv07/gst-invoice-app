@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { IndianRupee, HandCoins, Pencil, Trash2, Download } from "lucide-react";
 import Sheet from "../mobile/Sheet";
 import { STATUSES, monthName } from "./statuses";
+import { formatHours, clock, leftNextDay } from "./hours";
 import { daysOff, paymentsInOrder } from "../../lib/workerMonth";
 import { downloadWorkerMonthPdf } from "../../lib/workerMonthPdf";
 import { useBusiness } from "../../context/BusinessContext";
@@ -24,6 +25,7 @@ export default function WorkerSheet({ worker, month, days, editable, onClose, on
   const blanks = (new Date(`${month}-01T00:00:00`).getDay() + 6) % 7;
   const off = daysOff(worker);
   const payments = paymentsInOrder(worker);
+  const timed = Object.entries(worker.times || {}).sort(([a], [b]) => a.localeCompare(b));
 
   const download = async () => {
     setBusy(true);
@@ -100,6 +102,32 @@ export default function WorkerSheet({ worker, month, days, editable, onClose, on
               <li key={date} className={`badge ${BY_ID[status].soft}`}>{shortDate(date)} · {BY_ID[status].label}</li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section aria-label="Hours">
+        <Heading>Hours and overtime</Heading>
+        {timed.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-slate-500">No came or left time noted this month.</p>
+        ) : (
+          <>
+            <p className="px-4 py-2.5 text-sm text-slate-700 border-b border-slate-100">
+              <strong>{formatHours(summary.minutes)}</strong> worked · {formatHours(summary.overtimeMinutes)} overtime
+              {summary.overtimePay > 0 && `, adding ${money(summary.overtimePay)} to pay`}
+            </p>
+            <ul className="divide-y divide-slate-100">
+              {timed.map(([date, t]) => (
+                <li key={date} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-bold">{shortDate(date)}</span>
+                    <span className="block text-xs text-slate-500">{clock(t.in)} to {clock(t.out)}{leftNextDay(t) ? " next day" : ""}</span>
+                  </span>
+                  {t.overtime > 0 && <span className="badge bg-amber-50 text-amber-800 border-amber-200">{formatHours(t.overtime)} OT</span>}
+                  <span className="w-16 text-right font-bold tabular">{t.minutes ? formatHours(t.minutes) : "—"}</span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
 

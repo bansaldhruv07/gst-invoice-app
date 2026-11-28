@@ -2,6 +2,7 @@
 import { loadFonts } from "./invoicePdf";
 import { daysOff, paymentsInOrder } from "./workerMonth";
 import { STATUSES, monthName } from "../components/attendance/statuses";
+import { formatHours, clock } from "../components/attendance/hours";
 
 const amount = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const day = (iso) => iso.split("-").reverse().join("-");
@@ -62,6 +63,19 @@ export async function downloadWorkerMonthPdf({ business, worker, month }) {
     body: off.length ? off.map(([date, status]) => [day(date), weekday(date), LABEL[status]]) : [["None this month", "", ""]],
   });
 
+  const timed = Object.entries(worker.times || {}).sort(([a], [b]) => a.localeCompare(b));
+  if (timed.length) {
+    table({
+      startY: doc.lastAutoTable.finalY + 6,
+      head: [["Date", "Came", "Left", "Hours", "Overtime"]],
+      body: timed.map(([date, t]) => [
+        day(date), clock(t.in), t.out ? clock(t.out) : "", t.minutes ? formatHours(t.minutes) : "",
+        t.overtime ? formatHours(t.overtime) : "",
+      ]),
+      foot: [["Total", "", "", formatHours(summary.minutes), formatHours(summary.overtimeMinutes)]],
+    });
+  }
+
   const payments = paymentsInOrder(worker);
   table({
     startY: doc.lastAutoTable.finalY + 6,
@@ -77,6 +91,7 @@ export async function downloadWorkerMonthPdf({ business, worker, month }) {
     startY: doc.lastAutoTable.finalY + 6,
     body: [
       ["Pay earned this month", amount(summary.earned)],
+      ...(summary.overtimePay > 0 ? [["Of which overtime pay", amount(summary.overtimePay)]] : []),
       ["Less: advance taken", amount(summary.advance)],
       ["Less: salary already paid", amount(summary.salaryPaid)],
     ],

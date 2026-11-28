@@ -43,6 +43,7 @@ export const FEATURES = [
     points: [
       "Present, half day, absent or leave in one tap",
       "Daily wage or monthly salary",
+      "Came and left times, total hours and overtime",
       "Money taken in advance, with its date",
       "Month report to download (Starter and Growth plans)",
     ],

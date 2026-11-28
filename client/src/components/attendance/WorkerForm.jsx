@@ -10,6 +10,7 @@ export default function WorkerForm({ worker, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: worker?.name || "", mobile: worker?.mobile || "", work: worker?.work || "",
     payType: worker?.payType || "daily", rate: worker?.rate || "", joinedOn: worker?.joinedOn || todayISO(),
+    shiftHours: worker?.shiftHours ?? 8, breakMinutes: worker?.breakMinutes || "", overtimeRate: worker?.overtimeRate || "",
   });
   const [saving, setSaving] = useState(false);
   const bind = (key) => ({
@@ -35,7 +36,13 @@ export default function WorkerForm({ worker, onClose, onSaved }) {
   const save = () => {
     if (saving) return;
     if (!form.name.trim()) return toast.error("Enter the worker's name");
-    const body = { ...form, rate: Number(form.rate) || 0 };
+    const body = {
+      ...form,
+      rate: Number(form.rate) || 0,
+      shiftHours: Number(form.shiftHours) || 8,
+      breakMinutes: Number(form.breakMinutes) || 0,
+      overtimeRate: Number(form.overtimeRate) || 0,
+    };
     return run(
       () => (worker ? api.put(`/workers/${worker._id}`, body) : api.post("/workers", body)),
       () => (worker ? "Worker saved" : "Worker added"),
@@ -78,6 +85,11 @@ export default function WorkerForm({ worker, onClose, onSaved }) {
           <input type="number" inputMode="decimal" min="0" step="0.01" {...bind("rate")} />
         </Cell>
         <Cell label="Joining date" wide><input type="date" required {...bind("joinedOn")} /></Cell>
+        <Cell label="Shift hours a day"><input type="number" inputMode="decimal" min="1" max="24" step="0.5" {...bind("shiftHours")} /></Cell>
+        <Cell label="Unpaid break (minutes)"><input type="number" inputMode="numeric" min="0" max="600" step="5" placeholder="0" {...bind("breakMinutes")} /></Cell>
+        <Cell label="Overtime pay per hour (₹)" wide note="Leave empty to count overtime hours without adding pay.">
+          <input type="number" inputMode="decimal" min="0" step="0.01" placeholder="0" {...bind("overtimeRate")} />
+        </Cell>
       </Cells>
     </Sheet>
   );

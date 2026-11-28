@@ -9,6 +9,9 @@ const attendanceSchema = new mongoose.Schema(
     worker: { type: mongoose.Schema.Types.ObjectId, ref: "Worker", required: true },
     date: { type: String, required: true }, // YYYY-MM-DD
     status: { type: String, enum: STATUSES, required: true },
+    // When they came and left, as HH:MM on a 24-hour clock; "" when not noted
+    inTime: { type: String, default: "" },
+    outTime: { type: String, default: "" },
   },
   { timestamps: true },
 );
