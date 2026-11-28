@@ -32,8 +32,14 @@ function monthSummary(worker, month, marks, today) {
     const perDay = worker.rate / daysIn(month);
     earned = Math.max(0, (employedDays(worker, month) - counts.absent - counts.half / 2) * perDay);
   }
-  const paid = sum(worker.payments.filter((p) => p.forMonth === month), (p) => p.amount);
-  return { ...counts, worked, earned: round2(earned), paid, balance: round2(round2(earned) - paid) };
+  const payments = worker.payments.filter((p) => p.forMonth === month);
+  const paid = sum(payments, (p) => p.amount);
+  // Money taken before pay day, kept apart from the pay itself
+  const advance = sum(payments.filter((p) => p.kind === "advance"), (p) => p.amount);
+  return {
+    ...counts, worked, earned: round2(earned), advance, salaryPaid: round2(paid - advance), paid,
+    balance: round2(round2(earned) - paid),
+  };
 }
 
 module.exports = { daysIn, employedDays, monthSummary };

@@ -6,7 +6,9 @@ const { getUserPlan } = require("./checkPlan");
 
 const refuse = (res, status, message) => res.status(status).json({ success: false, message });
 
-const PRIVATE_FIELDS = "-password -resetTokenHash -resetTokenExpires";
+// Left out of every request: secrets, and the logo and signature pictures, which
+// are large and only needed on the business profile
+const PRIVATE_FIELDS = "-password -resetTokenHash -resetTokenExpires -logoUrl -supplierSignatureUrl";
 
 // ─── protect middleware ───────────────────────────────────────────────────────
 // Add this to any route that requires login. It sets:

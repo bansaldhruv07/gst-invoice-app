@@ -70,7 +70,8 @@ test("workers are added, marked and paid", async () => {
   const row = month.workers.find((w) => w._id === id);
   assert.deepEqual(row.marks, { "2026-09-01": "present", "2026-09-03": "present" });
   assert.deepEqual([row.summary.earned, row.summary.paid, row.summary.balance], [1000, 400, 600]);
-  assert.deepEqual(month.totals, { earned: 1000, paid: 400, balance: 600 });
+  assert.deepEqual(month.totals, { advance: 400, earned: 1000, paid: 400, balance: 600 });
+  assert.deepEqual([row.summary.advance, row.summary.salaryPaid], [400, 0]);
 
   await call("DELETE", `/workers/${id}/payments/${row.payments[0]._id}`);
   assert.equal((await call("GET", "/workers?month=2026-09")).data.totals.paid, 0);
@@ -116,4 +117,68 @@ test("attendance is part of the backup and the activity log", async () => {
   await new Promise((r) => setTimeout(r, 200));
   const { entries } = (await call("GET", "/activity")).data;
   assert.ok(entries.some((e) => e.action === "Marked attendance"));
+});
+
+test("an advance is kept apart from salary, and can exceed the pay", () => {
+  const worker = person({
+    payType: "monthly", rate: 3000,
+    payments: [
+      { forMonth: "2026-09", amount: 2500, kind: "advance" },
+      { forMonth: "2026-09", amount: 800, kind: "salary" },
+      { forMonth: "2026-08", amount: 999, kind: "advance" },
+    ],
+  });
+  const summary = monthSummary(worker, "2026-09", {}, "2026-11-28");
+  assert.deepEqual([summary.advance, summary.salaryPaid, summary.paid, summary.balance], [2500, 800, 3300, -300]);
+});
+
+test("each plan covers its own number of workers", async () => {
+  const owner = await app.register();
+  const as = (method, path, body) => call(method, path, body, owner.token);
+  const add = (name) => as("POST", "/workers", { name, joinedOn: "2026-01-01" });
+  const mark = (id) => as("PUT", "/workers/attendance", { date: "2026-09-01", marks: [{ worker: id, status: "present" }] });
+
+  // Free: not included
+  const refused = await add("Nobody");
+  assert.deepEqual([refused.status, refused.data.upgrade], [403, true]);
+  assert.equal((await as("GET", "/workers")).data.plan.limit, 0);
+
+  // Starter: two
+  await app.givePlan(owner.id, "starter");
+  const first = (await add("First")).data.worker._id;
+  const second = (await add("Second")).data.worker._id;
+  const third = await add("Third");
+  assert.equal(third.status, 403);
+  assert.match(third.data.message, /covers 2 workers/);
+  assert.equal((await mark(first)).status, 200);
+
+  // A place is freed when someone leaves, and they cannot return while it is full
+  await mark(second);
+  await as("DELETE", `/workers/${second}`);
+  const replacement = (await add("Replacement")).data.worker._id;
+  assert.equal((await as("PUT", `/workers/${second}`, { active: true })).status, 403);
+  assert.equal((await as("POST", `/workers/${second}/payments`, { amount: 10 })).status, 201, "a final settlement");
+
+  // Growth: any number
+  await app.givePlan(owner.id, "growth");
+  const extra = (await add("Extra")).data.worker._id;
+  assert.equal((await add("One more")).status, 201);
+
+  // Back to Starter: the first two stay in use, the rest can only be read
+  await app.givePlan(owner.id, "starter");
+  const month = (await as("GET", "/workers?month=2026-09")).data;
+  const locked = Object.fromEntries(month.workers.map((w) => [w.name, w.locked]));
+  assert.deepEqual(locked, { First: false, Replacement: false, Extra: true, "One more": true, Second: false });
+  assert.equal((await mark(replacement)).status, 200);
+  assert.equal((await mark(extra)).status, 403);
+  assert.equal((await as("POST", `/workers/${extra}/payments`, { amount: 10 })).status, 403);
+  assert.equal((await as("PUT", `/workers/${extra}`, { rate: 1 })).status, 403);
+
+  // Back to Free: everything stays readable, nothing can be changed
+  await app.givePlan(owner.id, "free");
+  const kept = (await as("GET", "/workers?month=2026-09")).data;
+  assert.equal(kept.workers.length, 5);
+  assert.ok(kept.workers.every((w) => w.locked));
+  assert.equal((await mark(first)).status, 403);
+  assert.equal((await as("POST", `/workers/${first}/payments`, { amount: 10 })).status, 403);
 });

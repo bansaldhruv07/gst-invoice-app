@@ -6,6 +6,7 @@ const Attendance = require("../models/Attendance");
 const { protect } = require("../middleware/auth");
 const { monthSummary, daysIn } = require("../services/payroll");
 const { readMobile } = require("../services/identity");
+const { workerPlan, coveredIds, assertRoom, assertCovered } = require("../services/workerPlan");
 const {
   route, findOwned, BadRequest, istDate, isDateString, sum, retryOnConflict,
 } = require("../services/common");
@@ -44,13 +45,17 @@ const publicWorker = (w) => ({
 // Everyone for one month: their marks, pay earned and payments
 router.get("/", route(async (req, res) => {
   const month = isMonth(req.query.month) ? req.query.month : today().slice(0, 7);
-  const [workers, records] = await Promise.all([
+  const [workers, records, plan] = await Promise.all([
     Worker.find({ user: req.user._id }).sort({ name: 1 }),
     Attendance.find({
       user: req.user._id,
       date: { $gte: `${month}-01`, $lte: `${month}-31` },
     }).lean(),
+    workerPlan(req.user._id),
   ]);
+  const covered = plan.limit > 0 ? await coveredIds(req.user._id, plan.limit) : null;
+  // Whether the plan allows this worker to be marked, edited or paid
+  const locked = (w) => plan.limit === 0 || Boolean(covered && !w.leftOn && !covered.has(String(w._id)));
 
   const marks = new Map();
   for (const r of records) {
@@ -64,6 +69,7 @@ router.get("/", route(async (req, res) => {
       const own = marks.get(String(w._id)) || {};
       return {
         ...publicWorker(w),
+        locked: locked(w),
         marks: own,
         summary: monthSummary(w, month, own, today()),
         payments: w.payments.filter((p) => p.forMonth === month),
@@ -78,7 +84,9 @@ router.get("/", route(async (req, res) => {
     today: today(),
     days: daysIn(month),
     workers: rows,
+    plan: { ...plan, used: workers.filter((w) => !w.leftOn).length },
     totals: {
+      advance: sum(rows, (w) => w.summary.advance),
       earned: sum(rows, (w) => w.summary.earned),
       paid: sum(rows, (w) => w.summary.paid),
       balance: sum(rows, (w) => w.summary.balance),
@@ -90,6 +98,7 @@ router.post("/", route(async (req, res) => {
   if ((await Worker.countDocuments({ user: req.user._id })) >= MAX_WORKERS) {
     throw new BadRequest(`You can add up to ${MAX_WORKERS} workers`);
   }
+  await assertRoom(req.user._id);
   const worker = new Worker({ user: req.user._id, joinedOn: today() });
   fill(worker, req.body);
   await worker.save();
@@ -117,6 +126,7 @@ router.put("/attendance", route(async (req, res) => {
     if (worker.leftOn && date > worker.leftOn) throw new BadRequest(`${worker.name} had left by that date`);
     return { updateOne: { filter: key, update: { $set: { status: mark.status } }, upsert: true } };
   });
+  await assertCovered(req.user._id, marks.map((m) => byId.get(String(m.worker))));
   await Attendance.bulkWrite(writes);
   res.json({ success: true, date });
 }));
@@ -124,6 +134,9 @@ router.put("/attendance", route(async (req, res) => {
 router.put("/:id", route(async (req, res) => {
   const worker = await retryOnConflict(async () => {
     const found = await findOwned(Worker, req, req.params.id, "Worker");
+    // Taking someone back needs a free place; other changes need them covered
+    if (req.body.active === true && found.leftOn) await assertRoom(req.user._id);
+    else await assertCovered(req.user._id, [found]);
     fill(found, req.body);
     if (req.body.active === true) found.leftOn = "";
     if (req.body.active === false) found.leftOn = found.leftOn || today();
@@ -154,6 +167,7 @@ router.post("/:id/payments", route(async (req, res) => {
 
   const worker = await retryOnConflict(async () => {
     const found = await findOwned(Worker, req, req.params.id, "Worker");
+    await assertCovered(req.user._id, [found]);
     if (found.payments.length >= 2000) throw new BadRequest("This worker has too many payments recorded");
     found.payments.push({ date, forMonth, amount, kind: req.body.kind || "salary", note: req.body.note || "" });
     return found.save();
@@ -166,6 +180,7 @@ router.delete("/:id/payments/:paymentId", route(async (req, res) => {
     const found = await findOwned(Worker, req, req.params.id, "Worker");
     const payment = found.payments.id(req.params.paymentId);
     if (!payment) throw new BadRequest("Payment not found", 404);
+    await assertCovered(req.user._id, [found]);
     payment.deleteOne();
     return found.save();
   });

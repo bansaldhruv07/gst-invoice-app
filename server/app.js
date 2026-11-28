@@ -26,6 +26,8 @@ app.use(
   cors({
     origin: [...development, website].filter(Boolean),
     credentials: true,
+    // The browser may remember this permission, instead of asking before each request
+    maxAge: 86400,
   }),
 );
 app.use("/api", generalLimit);

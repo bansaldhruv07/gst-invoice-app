@@ -129,9 +129,9 @@ test("three plans are on sale, with yearly prices", async () => {
   assert.deepEqual(
     plans.map((p) => [p.name, p.price, p.listPrice, p.yearlyPrice, Object.values(p.limits)]),
     [
-      ["free", 0, 0, 0, [20, 10, 10]],
-      ["starter", 499, 699, 4999, [100, 50, 50]],
-      ["growth", 799, 1299, 7999, [-1, -1, -1]],
+      ["free", 0, 0, 0, [20, 10, 10, 0]],
+      ["starter", 499, 699, 4999, [100, 50, 50, 2]],
+      ["growth", 799, 1299, 7999, [-1, -1, -1, -1]],
     ],
   );
   assert.deepEqual(plans.map((p) => p.features.multiUser), [false, false, true]);
@@ -148,6 +148,7 @@ test("stored plans are updated once, and the old plan is no longer sold", async 
   assert.deepEqual([starter.price, starter.razorpayPlanId], [499, ""], "it would still charge the old price");
   assert.equal((await Plan.findOne({ name: "growth" })).razorpayPlanId, "plan_same_price");
   assert.equal((await Plan.findOne({ name: "pro" })).isActive, false);
+  assert.equal((await Plan.findOne({ name: "pro" })).limits.workers, -1, "those who bought it keep every worker");
   await Plan.updateOne({ name: "growth" }, { razorpayPlanId: "" });
   // A later change in the database is left alone
   await Plan.updateOne({ name: "starter" }, { price: 450, razorpayPlanId: "" });

@@ -1,37 +1,47 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth, useCan } from "./context/AuthContext";
-import Team from "./pages/Team";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Pricing from "./pages/Pricing";
-// Pages
-import Login from "./pages/Login";
-import Landing from "./pages/Landing";
-import AssistantPage from "./pages/AssistantPage";
-import Attendance from "./pages/Attendance";
-import TryInvoice from "./pages/TryInvoice";
 import { SHOW_ASSISTANT } from "./lib/flags";
 import { startPage } from "./lib/startPage";
-import Register from "./pages/Register";
-import Overview from "./pages/Overview";
 import Invoices from "./pages/Invoices";
-import Contacts from "./pages/Contacts";
-import Products from "./pages/Products";
-import Ledger from "./pages/Ledger";
-import Quotations from "./pages/Quotations";
-import Stock from "./pages/Stock";
-import Expenses from "./pages/Expenses";
-import Reports from "./pages/Reports";
-import CreateInvoice from "./pages/CreateInvoice";
-import InvoiceDetail from "./pages/InvoiceDetail";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
-import Purchases from "./pages/Purchases";
-import CreatePurchase from "./pages/CreatePurchase";
-import Settings from "./pages/Settings";
 
 // Layout
+import { Spinner } from "./components/ui";
 import Layout from "./components/Layout";
+
+// Each screen's code is fetched when it is first opened, so the first visit
+// downloads only what it shows
+const Team = lazy(() => import("./pages/Team"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const Login = lazy(() => import("./pages/Login"));
+const Landing = lazy(() => import("./pages/Landing"));
+const AssistantPage = lazy(() => import("./pages/AssistantPage"));
+const Attendance = lazy(() => import("./pages/Attendance"));
+const TryInvoice = lazy(() => import("./pages/TryInvoice"));
+const Register = lazy(() => import("./pages/Register"));
+const Overview = lazy(() => import("./pages/Overview"));
+const Contacts = lazy(() => import("./pages/Contacts"));
+const Products = lazy(() => import("./pages/Products"));
+const Ledger = lazy(() => import("./pages/Ledger"));
+const Quotations = lazy(() => import("./pages/Quotations"));
+const Stock = lazy(() => import("./pages/Stock"));
+const Expenses = lazy(() => import("./pages/Expenses"));
+const Reports = lazy(() => import("./pages/Reports"));
+const CreateInvoice = lazy(() => import("./pages/CreateInvoice"));
+const InvoiceDetail = lazy(() => import("./pages/InvoiceDetail"));
+const Purchases = lazy(() => import("./pages/Purchases"));
+const CreatePurchase = lazy(() => import("./pages/CreatePurchase"));
+const Settings = lazy(() => import("./pages/Settings"));
+
+const Loading = () => (
+  <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <Spinner className="h-10 w-10" />
+  </div>
+);
 
 // ─── Protected Route wrapper ──────────────────────────────────────────────────
 // Redirects to /login if user is not authenticated
@@ -100,6 +110,7 @@ export default function App() {
             }}
           />
 
+          <Suspense fallback={<Loading />}>
           <Routes>
             {/* Public routes — redirect to dashboard if logged in */}
             <Route
@@ -162,6 +173,7 @@ export default function App() {
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </SubscriptionProvider>
     </AuthProvider>

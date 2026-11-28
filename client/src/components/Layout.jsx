@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { Menu, Plus, Search } from "lucide-react";
 import CommandPalette from "./CommandPalette";
@@ -12,6 +12,7 @@ import { ASSISTANT_NAME } from "../lib/assistant";
 import { useCan } from "../context/AuthContext";
 import { SHOW_ASSISTANT } from "../lib/flags";
 import { MenuContext } from "./mobile/menu";
+import { Spinner } from "./ui";
 
 const TITLES = [
   [/^\/team/, "Team"],
@@ -49,6 +50,15 @@ function Shell() {
   const [searchOpen, setSearchOpen] = useState(false);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
   const openMenu = useCallback(() => setNavOpen(true), []);
+
+  // The two screens most often opened next are fetched once this one is showing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      import("../pages/CreateInvoice").catch(() => {});
+      import("../pages/InvoiceDetail").catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -130,7 +140,10 @@ function Shell() {
           {/* Room at the bottom so the floating button never covers content */}
           <div key={pathname} className={`animate-rise ${onAssistant ? "h-full" : !SHOW_ASSISTANT ? "" : writing || hasBar ? "lg:pb-20" : "pb-20"}`}>
             <MenuContext.Provider value={openMenu}>
-              <Outlet />
+              {/* The menu stays in place while a screen's code arrives */}
+              <Suspense fallback={<div className="flex justify-center py-20"><Spinner /></div>}>
+                <Outlet />
+              </Suspense>
             </MenuContext.Provider>
           </div>
         </main>

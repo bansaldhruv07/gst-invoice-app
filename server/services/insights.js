@@ -7,6 +7,7 @@ const Quotation = require("../models/Quotation");
 const Expense = require("../models/Expense");
 const Buyer = require("../models/Buyer");
 const Item = require("../models/Item");
+const User = require("../models/User");
 const { getUserPlan } = require("../middleware/checkPlan");
 const { computeStock } = require("./stock");
 const { claimsCredit } = require("./reports");
@@ -53,7 +54,7 @@ function monthFigures({ invoices, notes, purchases, expenses }, month) {
   };
 }
 
-function setupSteps(user, counts) {
+function setupSteps(user, counts, hasLogo) {
   return [
     { id: "business", label: "Business name, address and phone", to: "/settings",
       done: Boolean(user.supplierName && user.supplierAddress && user.supplierPhone) },
@@ -61,7 +62,7 @@ function setupSteps(user, counts) {
       done: Boolean(user.supplierGstin) },
     { id: "bank", label: "Bank details printed on invoices", to: "/settings",
       done: Boolean(user.supplierBankAccount && user.supplierBankIfsc) },
-    { id: "logo", label: "Logo", to: "/settings", done: Boolean(user.logoUrl) },
+    { id: "logo", label: "Logo", to: "/settings", done: hasLogo },
     { id: "buyer", label: "First buyer", to: "/buyers", done: counts.buyers > 0 },
     { id: "item", label: "First product", to: "/items", done: counts.items > 0 },
     { id: "invoice", label: "First invoice", to: "/invoices/create", done: counts.invoices > 0 },
@@ -70,7 +71,7 @@ function setupSteps(user, counts) {
 
 async function buildInsights(user) {
   const userId = user._id;
-  const [invoices, purchases, notes, expenses, quotations, buyers, items, stock, planInfo] = await Promise.all([
+  const [invoices, purchases, notes, expenses, quotations, buyers, items, stock, planInfo, logo] = await Promise.all([
     Invoice.find({ user: userId, status: { $ne: "cancelled" } })
       .select("invoiceNumber invoiceDate dueDate status grandTotal balanceAmount totalTax buyer createdAt")
       .populate("buyer", "name mobile")
@@ -87,6 +88,8 @@ async function buildInsights(user) {
     Item.find({ user: userId }).select("name hsn").lean(),
     computeStock(userId),
     getUserPlan(userId),
+    // Asked of the database, so the picture itself is never fetched here
+    User.exists({ _id: userId, logoUrl: { $nin: ["", null] } }),
   ]);
 
   const today = istDate(Date.now());
@@ -207,7 +210,7 @@ async function buildInsights(user) {
     items: items.length,
     invoices: await Invoice.countDocuments({ user: userId }),
   };
-  const setup = setupSteps(user, counts);
+  const setup = setupSteps(user, counts, Boolean(logo));
 
   // ── Things that need attention, most urgent first ────────────────────────
   const attention = [];

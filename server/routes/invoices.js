@@ -66,21 +66,23 @@ router.get("/next-number", route(async (req, res) => {
 // ─── GET /api/invoices/stats ──────────────────────────────────────────────────
 // Must be defined before /:id
 router.get("/stats", route(async (req, res) => {
-  const [totals] = await Invoice.aggregate([
-    { $match: { user: req.user._id, status: { $ne: "cancelled" } } },
-    {
-      $group: {
-        _id: null,
-        totalInvoices: { $sum: 1 },
-        totalAmount: { $sum: "$grandTotal" },
-        totalPaid: { $sum: "$paidAmount" },
-        totalBalance: { $sum: "$balanceAmount" },
+  const [[totals], counts] = await Promise.all([
+    Invoice.aggregate([
+      { $match: { user: req.user._id, status: { $ne: "cancelled" } } },
+      {
+        $group: {
+          _id: null,
+          totalInvoices: { $sum: 1 },
+          totalAmount: { $sum: "$grandTotal" },
+          totalPaid: { $sum: "$paidAmount" },
+          totalBalance: { $sum: "$balanceAmount" },
+        },
       },
-    },
-  ]);
-  const counts = await Invoice.aggregate([
-    { $match: { user: req.user._id } },
-    { $group: { _id: "$status", n: { $sum: 1 } } },
+    ]),
+    Invoice.aggregate([
+      { $match: { user: req.user._id } },
+      { $group: { _id: "$status", n: { $sum: 1 } } },
+    ]),
   ]);
   const count = (status) => counts.find((c) => c._id === status)?.n || 0;
 
@@ -120,13 +122,15 @@ router.get("/", route(async (req, res) => {
 
   const pageSize = Math.min(Math.max(Number(limit) || 20, 1), 5000);
   const skip = (Math.max(Number(page) || 1, 1) - 1) * pageSize;
-  const total = await Invoice.countDocuments(filter);
-  const invoices = await Invoice.find(filter)
-    .select("-signatureUrl")
-    .populate("buyer", "name gstin city state")
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(pageSize);
+  const [total, invoices] = await Promise.all([
+    Invoice.countDocuments(filter),
+    Invoice.find(filter)
+      .select("-signatureUrl")
+      .populate("buyer", "name gstin city state")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize),
+  ]);
 
   res.json({
     success: true,

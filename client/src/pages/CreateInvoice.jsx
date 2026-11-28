@@ -428,8 +428,7 @@ function InvoiceForm({ editId }) {
 
   return (
     <div className="-m-4 lg:m-0">
-      {/* The app opens here, so phones get the main menu rather than a back arrow */}
-      <PageBar title={title} back={listPath} menu={!editId && !isQuote}>
+      <PageBar title={title} back={listPath}>
         <button type="button" onClick={save} disabled={saving} className="px-3 py-2 font-bold text-brand-700">Save</button>
       </PageBar>
 
