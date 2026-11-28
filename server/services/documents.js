@@ -3,6 +3,7 @@ const Buyer = require("../models/Buyer");
 const { taxTypeFor, computeTotals } = require("./gst");
 const { BadRequest } = require("./common");
 const { roleOf } = require("./permissions");
+const { stateCodeFor } = require("./states");
 
 // Free-text fields copied as sent
 const TEXT_FIELDS = [
@@ -10,7 +11,23 @@ const TEXT_FIELDS = [
   "transporterId", "optionalField1", "optionalValue1", "optionalField2", "optionalValue2",
   "signatureUrl", "supplierName", "supplierGstin", "supplierAddress", "supplierCity",
   "supplierState", "supplierPincode", "supplierPhone", "supplierEmail", "supplierStateCode",
+  "ewayBillNumber",
 ];
+
+const CONSIGNEE_FIELDS = ["name", "gstin", "address", "city", "state", "pincode"];
+
+// "Shipped to": the buyer, nobody, or another address
+function consigneeFields(body) {
+  const mode = ["none", "other"].includes(body.consigneeMode) ? body.consigneeMode : "same";
+  if (mode !== "other") return { consigneeMode: mode, consignee: {} };
+  const consignee = Object.fromEntries(
+    CONSIGNEE_FIELDS.map((key) => [key, String(body.consignee?.[key] || "").trim().slice(0, 200)]),
+  );
+  if (!consignee.name) throw new BadRequest("Enter the consignee's name");
+  consignee.gstin = consignee.gstin.toUpperCase();
+  consignee.stateCode = consignee.gstin.slice(0, 2) || stateCodeFor(consignee.state);
+  return { consigneeMode: mode, consignee };
+}
 
 const SUPPLIER_FIELDS = [
   "supplierName", "supplierGstin", "supplierAddress", "supplierCity", "supplierState",
@@ -21,6 +38,7 @@ const withBusinessDetails = (user, body) => ({
   ...body,
   ...Object.fromEntries(SUPPLIER_FIELDS.map((key) => [key, user[key] || ""])),
   bankDetailsOverride: null,
+  showBankDetails: true,
   signatureUrl: "",
 });
 
@@ -34,7 +52,11 @@ async function buildDocument(user, body) {
 
   const invoiceType = body.invoiceType === "bill_of_supply" ? "bill_of_supply" : "tax_invoice";
   const taxMode = body.taxMode === "inclusive" ? "inclusive" : "exclusive";
-  const taxType = taxTypeFor(body.supplierStateCode || user.supplierStateCode || "07", buyer.stateCode);
+  const taxType = taxTypeFor(
+    body.supplierStateCode || user.supplierStateCode || "07",
+    buyer.stateCode,
+    buyer.gstTreatment,
+  );
 
   const totals = computeTotals(body.items, {
     taxType,
@@ -61,6 +83,10 @@ async function buildDocument(user, body) {
       bankName: "", bankAccount: "", bankIfsc: "", bankBranch: "", bankHolderName: "",
     },
     printCopies: body.printCopies || ["recipient", "transporter", "supplier"],
+    showBankDetails: body.showBankDetails !== false,
+    reverseCharge: body.reverseCharge === true,
+    ewayBillDate: body.ewayBillDate || null,
+    ...consigneeFields(body),
   };
   for (const key of TEXT_FIELDS) fields[key] = body[key] || "";
 

@@ -61,6 +61,8 @@ function Shell() {
   const planName = subscription?.plan?.displayName;
   const writing = /\/(create|edit)$/.test(pathname);
   const onAssistant = pathname === "/assistant";
+  // On phones these screens have their own buttons where the chat button would sit
+  const hasBar = /^\/invoices\/[a-f0-9]{24}$/.test(pathname);
 
   return (
     <div className="flex h-screen overflow-clip">
@@ -75,6 +77,9 @@ function Shell() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 flex-shrink-0 flex items-center gap-3 px-4 lg:px-6 bg-white/80 backdrop-blur border-b border-slate-200">
+          {/* A screen can put its own bar here on phones (see PageBar) */}
+          <div id="page-bar" className="page-bar flex-1 min-w-0 items-center gap-2" />
+          <div className="default-bar contents">
           <button
             onClick={() => setNavOpen(true)}
             aria-label="Open menu"
@@ -114,11 +119,12 @@ function Shell() {
               </Link>
             )}
           </div>
+          </div>
         </header>
 
         <main className="relative flex-1 overflow-y-auto p-4 lg:p-6">
           {/* Room at the bottom so the floating button never covers content */}
-          <div key={pathname} className={`animate-rise ${onAssistant ? "h-full" : "pb-20"}`}>
+          <div key={pathname} className={`animate-rise ${onAssistant ? "h-full" : writing || hasBar ? "lg:pb-20" : "pb-20"}`}>
             <Outlet />
           </div>
         </main>
@@ -128,7 +134,8 @@ function Shell() {
         <button
           onClick={() => setAssistantOpen(true)}
           aria-label="Assistant"
-          className="fixed bottom-5 right-5 z-30 flex items-center gap-2 h-14 pl-4 pr-5 rounded-full text-sm font-bold text-white bg-gradient-to-br from-brand-500 to-brand-700 shadow-xl animate-halo transition hover:-translate-y-1"
+          data-desktop-only={hasBar || undefined}
+          className="assistant-button fixed bottom-5 right-5 z-30 flex items-center gap-2 h-14 pl-4 pr-5 rounded-full text-sm font-bold text-white bg-gradient-to-br from-brand-500 to-brand-700 shadow-xl animate-halo transition hover:-translate-y-1"
         >
           <Spark className="w-5 h-5" />
           Ask {ASSISTANT_NAME}

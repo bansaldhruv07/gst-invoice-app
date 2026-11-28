@@ -1,44 +1,41 @@
+// One invoice, shown as the bill itself, with everything that can be done to it.
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import toast from "react-hot-toast";
-import { ArrowLeft, Download, IndianRupee, MessageCircle, Pencil, Copy, Undo2, Share2, Trash2 } from "lucide-react";
+import {
+  ArrowLeft, Download, Printer, MoreVertical, Pencil, FileInput, Truck, IndianRupee, Send,
+} from "lucide-react";
 import { useBusiness } from "../context/BusinessContext";
-import { downloadInvoicePdf, downloadCreditNotePdf, shareInvoicePdf, canSharePdf } from "../lib/invoicePdf";
-import ReturnModal from "../components/ReturnModal";
-import { amountInWords } from "../lib/amountInWords";
-import { money, shortDate, whatsappReminder } from "../lib/format";
+import { makeInvoicePdf } from "../lib/invoicePdf";
+import { downloadBill, printBill, shareBill } from "../lib/invoiceSend";
+import { money, shortDate } from "../lib/format";
 import PaymentModal from "../components/PaymentModal";
 import { Spinner, statusStyle } from "../components/ui";
 import UpiPay from "../components/UpiPay";
+import PageBar from "../components/mobile/PageBar";
+import PdfPreview from "../components/invoice/PdfPreview";
+import InvoiceMenu from "../components/invoice/InvoiceMenu";
+import ComplianceSheet from "../components/invoice/ComplianceSheet";
+import PaymentHistory from "../components/invoice/PaymentHistory";
 import { useCan } from "../context/AuthContext";
 
-const MODE_LABELS = {
-  upi: "UPI",
-  bank_transfer: "Bank transfer",
-  cash: "Cash",
-  cheque: "Cheque",
-  card: "Card",
-  other: "Other",
-};
+const COPIES = [
+  ["recipient", "Original"],
+  ["transporter", "Duplicate"],
+  ["supplier", "Triplicate"],
+];
 
-function Facts({ title, rows }) {
+// A round button with its name under it, for the bar at the bottom of a phone
+function BarButton({ icon: Icon, label, onClick, disabled }) {
   return (
-    <section className="card">
-      <div className="card-head">
-        <h2 className="card-title">{title}</h2>
-      </div>
-      <dl className="px-5 py-3 space-y-1.5 text-sm">
-        {rows
-          .filter(([, value]) => value)
-          .map(([label, value]) => (
-            <div key={label} className="flex gap-4">
-              <dt className="w-28 flex-shrink-0 text-slate-500">{label}</dt>
-              <dd className="min-w-0 break-words">{value}</dd>
-            </div>
-          ))}
-      </dl>
-    </section>
+    <button type="button" onClick={onClick} disabled={disabled}
+      className="flex flex-1 flex-col items-center gap-1.5 py-1 text-xs font-semibold text-slate-700 transition active:scale-95 disabled:opacity-40">
+      <span className="grid place-items-center w-12 h-12 rounded-full bg-brand-50 text-brand-700">
+        <Icon className="w-5 h-5" />
+      </span>
+      {label}
+    </button>
   );
 }
 
@@ -48,17 +45,15 @@ export default function InvoiceDetail() {
   const { business } = useBusiness();
   const can = useCan();
 
-  const [invoice, setInvoice] = useState(null);
-  const [showPayment, setShowPayment] = useState(false);
-  const [showReturn, setShowReturn] = useState(false);
-  const [creditNotes, setCreditNotes] = useState([]);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [record, setRecord] = useState(null);
+  const [copies, setCopies] = useState(["recipient"]);
+  const [preview, setPreview] = useState(null);
+  const [panel, setPanel] = useState("");
 
-  const fetchInvoice = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       const { data } = await api.get(`/invoices/${id}`);
-      setInvoice(data.invoice);
-      setCreditNotes(data.creditNotes || []);
+      setRecord({ invoice: data.invoice, creditNotes: data.creditNotes || [] });
     } catch {
       toast.error("Invoice not found");
       navigate("/invoices");
@@ -66,334 +61,183 @@ export default function InvoiceDetail() {
   }, [id, navigate]);
 
   useEffect(() => {
-    fetchInvoice();
-  }, [fetchInvoice]);
+    load();
+  }, [load]);
 
-  const changeStatus = async (status) => {
-    try {
-      const { data } = await api.put(`/invoices/${id}/status`, { status });
-      toast.success(`Marked as ${data.invoice.status}`);
-      fetchInvoice();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Could not update the status");
-    }
-  };
+  const invoice = record?.invoice;
 
-  const download = async () => {
-    setPdfLoading(true);
-    try {
-      const { logoMissing } = await downloadInvoicePdf(invoice);
-      if (logoMissing) {
-        toast.error("Your logo could not be loaded. Upload it again in Settings.");
-      }
-    } catch (err) {
-      console.error("PDF error:", err);
-      toast.error("Could not create the PDF");
-    } finally {
-      setPdfLoading(false);
-    }
-  };
-
-  const share = async () => {
-    try {
-      await shareInvoicePdf(invoice);
-    } catch (err) {
-      console.error("Share error:", err);
-      toast.error("Could not share the PDF");
-    }
-  };
-
-  const downloadNote = async (note) => {
-    try {
-      await downloadCreditNotePdf(note, invoice);
-    } catch (err) {
-      console.error("PDF error:", err);
-      toast.error("Could not create the PDF");
-    }
-  };
-
-  const deleteNote = async (note) => {
-    if (!window.confirm(`Delete credit note ${note.number}? The amount becomes due again.`)) return;
-    try {
-      await api.delete(`/credit-notes/${note._id}`);
-      toast.success("Credit note deleted");
-      fetchInvoice();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Could not delete it");
-    }
-  };
+  // Redrawn when the bill, the chosen copies or the business details change
+  useEffect(() => {
+    if (!invoice) return;
+    let current = true;
+    makeInvoicePdf(invoice, copies)
+      .then(({ doc }) => current && setPreview({ id: invoice._id, blob: doc.output("blob") }))
+      .catch((err) => {
+        console.error("PDF error:", err);
+        if (current) toast.error("Could not create the PDF");
+      });
+    return () => {
+      current = false;
+    };
+  }, [invoice, copies, business]);
 
   if (!invoice || invoice._id !== id) {
     return <div className="flex justify-center py-20"><Spinner /></div>;
   }
 
-  const igst = invoice.taxType === "igst";
-  const canPay = invoice.status === "unpaid" || invoice.status === "partial";
-  const buyer = invoice.buyer || {};
-  const reminder =
-    canPay &&
-    whatsappReminder({
-      mobile: buyer.mobile,
-      buyer: buyer.name,
-      invoiceNumber: invoice.invoiceNumber,
-      balance: invoice.balanceAmount,
-      dueDate: invoice.dueDate,
-      business: business?.name,
+  const { creditNotes } = record;
+  const cancelled = invoice.status === "cancelled";
+  const canPay = !cancelled && invoice.balanceAmount > 0;
+  const editable = can("editInvoice") && !cancelled && creditNotes.length === 0;
+
+  // At least one copy stays ticked
+  const toggle = (key) =>
+    setCopies((list) => {
+      const next = list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
+      return next.length ? COPIES.map(([k]) => k).filter((k) => next.includes(k)) : list;
     });
 
-  const cancelled = invoice.status === "cancelled";
-  const returnedQuantity = creditNotes.reduce((t, n) => t + n.items.reduce((s, l) => s + l.quantity, 0), 0);
-  const canReturn = !cancelled && returnedQuantity < invoice.items.reduce((s, l) => s + l.quantity, 0) - 0.0005;
+  const attempt = (work, failure) => async () => {
+    try {
+      await work();
+    } catch (err) {
+      console.error(err);
+      toast.error(failure);
+    }
+  };
+  const download = attempt(() => downloadBill(invoice, copies, toast), "Could not create the PDF");
+  const print = attempt(() => printBill(invoice, copies), "Could not print");
+  const share = attempt(() => shareBill(invoice, copies, toast), "Could not share the PDF");
 
-  const summary = [
-    ["Taxable amount", invoice.subTotal],
-    ...(invoice.discountAmount > 0 ? [["Discount", -invoice.discountAmount]] : []),
-    ...(igst
-      ? [["IGST", invoice.totalIgst]]
-      : [["CGST", invoice.totalCgst], ["SGST", invoice.totalSgst]]),
-    ...(invoice.roundOff ? [["Round off", invoice.roundOff]] : []),
-  ];
+  const changeStatus = async (status) => {
+    try {
+      const { data } = await api.put(`/invoices/${id}/status`, { status });
+      toast.success(`Marked as ${data.invoice.status}`);
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not update the status");
+    }
+  };
+
+  const actions = [
+    can("compliance") && !cancelled && ["einvoice", "E-Invoice", FileInput, () => setPanel("einvoice")],
+    can("compliance") && !cancelled && ["eway", "E-way Bill", Truck, () => setPanel("eway")],
+    can("recordPayment") && ["pay", "Record Payment", IndianRupee, () => setPanel("pay"), !canPay],
+    ["share", "Share", Send, share],
+  ].filter(Boolean);
+
+  const copyBoxes = (
+    <fieldset className="flex items-center justify-between sm:justify-start gap-4 sm:gap-8">
+      <legend className="sr-only">Print copies</legend>
+      {COPIES.map(([key, label]) => (
+        <label key={key} className="flex items-center gap-2 py-1 text-sm font-semibold cursor-pointer">
+          <input type="checkbox" className="w-5 h-5" checked={copies.includes(key)} onChange={() => toggle(key)} />
+          {label}
+        </label>
+      ))}
+    </fieldset>
+  );
+
+  const status = (
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-sm text-slate-500">
+        {canPay ? <>Balance due <strong className="font-bold text-red-700 tabular">{money(invoice.balanceAmount)}</strong></>
+          : cancelled ? "Cancelled" : "Nothing is due"}
+      </p>
+      <select aria-label="Status" value={invoice.status} disabled={!can("editInvoice")}
+        onChange={(e) => changeStatus(e.target.value)} className={`badge h-9 px-3 pr-8 text-sm ${statusStyle(invoice.status)}`}>
+        <option value="unpaid">Unpaid</option>
+        <option value="partial">Partial</option>
+        <option value="paid">Paid</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+  );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={() => navigate("/invoices")}
-          aria-label="Back to invoices"
-          className="p-2 -ml-2 rounded-lg text-slate-500 hover:bg-slate-100"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="mr-auto">
-          <h2 className="text-xl font-semibold">{invoice.invoiceNumber}</h2>
-          <p className="text-sm text-slate-500">
-            {invoice.invoiceType === "bill_of_supply" ? "Bill of supply" : "Tax invoice"} ·{" "}
-            {shortDate(invoice.invoiceDate)}
-          </p>
-        </div>
-        <select
-          aria-label="Status"
-          value={invoice.status}
-          disabled={!can("editInvoice")}
-          onChange={(e) => changeStatus(e.target.value)}
-          className={`badge h-9 px-3 pr-8 text-sm ${statusStyle(invoice.status)}`}
-        >
-          <option value="unpaid">Unpaid</option>
-          <option value="partial">Partial</option>
-          <option value="paid">Paid</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        {reminder && (
-          <a href={reminder} target="_blank" rel="noreferrer" className="btn-secondary">
-            <MessageCircle className="w-4 h-4" /> Send reminder
-          </a>
-        )}
-        {canPay && can("recordPayment") && (
-          <button onClick={() => setShowPayment(true)} className="btn-secondary">
-            <IndianRupee className="w-4 h-4" /> Record payment
-          </button>
-        )}
-        <button onClick={download} disabled={pdfLoading} className="btn-primary">
-          <Download className="w-4 h-4" /> {pdfLoading ? "Preparing…" : "Download PDF"}
-        </button>
-      </div>
+    <div className="-m-4 lg:m-0">
+      <PageBar title={invoice.invoiceNumber} back="/invoices">
+        <button type="button" onClick={print} aria-label="Print" className="p-2 rounded-lg text-slate-700 hover:bg-slate-100"><Printer className="w-5 h-5" /></button>
+        <button type="button" onClick={download} aria-label="Download PDF" className="p-2 rounded-lg text-slate-700 hover:bg-slate-100"><Download className="w-5 h-5" /></button>
+        <button type="button" onClick={() => setPanel("menu")} aria-label="More actions" className="p-2 -mr-2 rounded-lg text-slate-700 hover:bg-slate-100"><MoreVertical className="w-5 h-5" /></button>
+      </PageBar>
 
-      <div className="flex flex-wrap gap-2">
-        {!cancelled && creditNotes.length === 0 && can("editInvoice") && (
-          <Link to={`/invoices/${invoice._id}/edit`} className="btn-secondary btn-sm">
-            <Pencil className="w-3.5 h-3.5" /> Edit
-          </Link>
-        )}
-        {can("createInvoice") && (
-          <Link to={`/invoices/create?from=${invoice._id}`} className="btn-secondary btn-sm">
-            <Copy className="w-3.5 h-3.5" /> Duplicate
-          </Link>
-        )}
-        {canReturn && can("returns") && (
-          <button onClick={() => setShowReturn(true)} className="btn-secondary btn-sm">
-            <Undo2 className="w-3.5 h-3.5" /> Sales return
-          </button>
-        )}
-        {canSharePdf() && (
-          <button onClick={share} className="btn-secondary btn-sm">
-            <Share2 className="w-3.5 h-3.5" /> Share PDF
-          </button>
-        )}
-        {buyer._id && (
-          <Link to={`/buyers/${buyer._id}`} className="btn btn-sm text-brand-700 hover:underline">
-            Buyer statement
-          </Link>
-        )}
-      </div>
-
-      <section
-        className={`card grid divide-x divide-slate-200 ${invoice.creditedAmount > 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}
-      >
-        {[
-          ["Invoice amount", invoice.grandTotal, ""],
-          ["Received", invoice.paidAmount, ""],
-          ...(invoice.creditedAmount > 0 ? [["Returned", invoice.creditedAmount, ""]] : []),
-          ["Balance due", invoice.balanceAmount, canPay ? "text-red-700" : ""],
-        ].map(([label, value, tone]) => (
-          <div key={label} className="px-4 py-4 sm:px-5">
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className={`mt-1 text-base sm:text-2xl font-semibold tabular ${tone}`}>{money(value)}</p>
-          </div>
-        ))}
-      </section>
-
-      {!cancelled && <UpiPay invoice={invoice} business={business} />}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Facts
-          title="Billed to"
-          rows={[
-            ["Name", <span key="n" className="font-medium">{buyer.name}</span>],
-            ["GSTIN", buyer.gstin || "Unregistered"],
-            ["Address", [buyer.address, buyer.city, buyer.state, buyer.pincode].filter(Boolean).join(", ")],
-            ["Mobile", buyer.mobile],
-          ]}
-        />
-        <Facts
-          title="Details"
-          rows={[
-            ["Due date", invoice.dueDate && shortDate(invoice.dueDate)],
-            ["Tax", igst ? "IGST (another state)" : "CGST + SGST (same state)"],
-            ["Rates", invoice.taxMode === "inclusive" ? "Include GST" : "Exclude GST"],
-            ["Challan no.", invoice.challanNumber],
-            ["Vehicle no.", invoice.vehicleNumber],
-            ["Place of supply", invoice.placeOfSupply],
-            ["Note", invoice.notes],
-          ]}
-        />
-      </div>
-
-      <section className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="th">Item</th>
-                <th className="th">HSN/SAC</th>
-                <th className="th text-right">Quantity</th>
-                <th className="th text-right">Rate</th>
-                <th className="th text-right">Taxable</th>
-                <th className="th text-right">GST</th>
-                <th className="th text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoice.items.map((item) => (
-                <tr key={item._id}>
-                  <td className="td font-medium min-w-[12rem]">{item.name}</td>
-                  <td className="td">{item.hsn || "—"}</td>
-                  <td className="td text-right whitespace-nowrap">
-                    {item.quantity} <span className="text-xs text-slate-500 uppercase">{item.unit}</span>
-                  </td>
-                  <td className="td text-right whitespace-nowrap">{money(item.rate)}</td>
-                  <td className="td text-right whitespace-nowrap">{money(item.taxableAmount)}</td>
-                  <td className="td text-right whitespace-nowrap">
-                    {money(item.totalAmount - item.taxableAmount)}
-                    <span className="block text-xs text-slate-500">{item.gstPercent}%</span>
-                  </td>
-                  <td className="td text-right whitespace-nowrap font-medium">{money(item.totalAmount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-col sm:flex-row justify-between gap-6 px-5 py-4">
-          <div className="text-sm sm:max-w-sm">
-            <p className="text-slate-500">Amount in words</p>
-            <p>{amountInWords(invoice.grandTotal)}</p>
-            {invoice.terms && (
-              <>
-                <p className="mt-3 text-slate-500">Terms and conditions</p>
-                <p className="whitespace-pre-line">{invoice.terms}</p>
-              </>
-            )}
-          </div>
-          <dl className="text-sm sm:w-72">
-            {summary.map(([label, value]) => (
-              <div key={label} className="flex justify-between py-1">
-                <dt className="text-slate-500">{label}</dt>
-                <dd className="tabular">{money(value)}</dd>
-              </div>
-            ))}
-            <div className="flex justify-between pt-2 mt-1 border-t border-slate-300 text-base font-semibold">
-              <dt>Total</dt>
-              <dd className="tabular">{money(invoice.grandTotal)}</dd>
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-5 lg:items-start">
+        <div className="min-w-0">
+          {/* Wide screens: number and the main actions */}
+          <div className="hidden lg:flex items-center gap-3 mb-4">
+            <button onClick={() => navigate("/invoices")} aria-label="Back to invoices" className="p-2 -ml-2 rounded-lg text-slate-500 hover:bg-slate-100">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="mr-auto">
+              <h2 className="text-xl font-semibold">{invoice.invoiceNumber}</h2>
+              <p className="text-sm text-slate-500">
+                {invoice.invoiceType === "bill_of_supply" ? "Bill of supply" : "Tax invoice"} · {shortDate(invoice.invoiceDate)} · {invoice.buyer?.name}
+              </p>
             </div>
-          </dl>
+            <button onClick={print} className="btn-secondary"><Printer className="w-4 h-4" /> Print</button>
+            <button onClick={download} className="btn-primary"><Download className="w-4 h-4" /> Download PDF</button>
+            <button onClick={() => setPanel("menu")} aria-label="More actions" className="btn-secondary px-3"><MoreVertical className="w-4 h-4" /></button>
+          </div>
+
+          <div className="bg-white lg:card px-4 py-3 border-b border-slate-200 lg:mb-4">{copyBoxes}</div>
+          <div className="px-4 pt-3 lg:hidden">{status}</div>
+
+          <div className="relative p-3 lg:p-0">
+            <PdfPreview blob={preview?.id === invoice._id ? preview.blob : null} label={`Invoice ${invoice.invoiceNumber}`} />
+          </div>
+
         </div>
-      </section>
 
-      {invoice.paymentHistory?.length > 0 && (
-        <section className="card">
-          <div className="card-head">
-            <h2 className="card-title">Payments</h2>
-          </div>
-          <ul className="divide-y divide-slate-100">
-            {invoice.paymentHistory.map((p) => (
-              <li key={p._id} className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
-                <span>
-                  <span className="block font-medium">{MODE_LABELS[p.mode] || p.mode}</span>
-                  <span className="block text-slate-500">
-                    {shortDate(p.date)}
-                    {p.note && ` · ${p.note}`}
-                  </span>
-                </span>
-                <span className="tabular font-medium">{money(p.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {creditNotes.length > 0 && (
-        <section className="card">
-          <div className="card-head">
-            <h2 className="card-title">Credit notes</h2>
-          </div>
-          <ul className="divide-y divide-slate-100">
-            {creditNotes.map((n) => (
-              <li key={n._id} className="flex items-center gap-3 px-5 py-3 text-sm">
-                <span className="mr-auto min-w-0">
-                  <span className="block font-medium">{n.number}</span>
-                  <span className="block text-slate-500">
-                    {shortDate(n.date)} · {n.items.map((l) => `${l.quantity} ${l.unit} ${l.name}`).join(", ")}
-                    {n.reason && ` · ${n.reason}`}
-                  </span>
-                </span>
-                <span className="tabular font-medium whitespace-nowrap">{money(n.grandTotal)}</span>
-                <button onClick={() => downloadNote(n)} aria-label={`Download ${n.number}`} className="btn-secondary btn-sm">
-                  <Download className="w-3.5 h-3.5" />
+        <aside className="hidden lg:block space-y-4 lg:sticky lg:top-0">
+          <section className="card p-4 space-y-3">
+            {status}
+            <div className="grid grid-cols-2 gap-2">
+              {actions.map(([key, label, Icon, run, disabled]) => (
+                <button key={key} type="button" onClick={run} disabled={disabled} className="btn-secondary h-auto flex-col py-3">
+                  <Icon className="w-5 h-5 text-brand-600" /> {label}
                 </button>
-                {can("returns") && (
-                <button onClick={() => deleteNote(n)} aria-label={`Delete ${n.number}`} className="btn btn-sm text-slate-500 hover:text-red-700 hover:bg-red-50">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+              ))}
+            </div>
+            {editable && (
+              <Link to={`/invoices/${invoice._id}/edit`} className="btn-primary w-full">
+                <Pencil className="w-4 h-4" /> Edit Invoice
+              </Link>
+            )}
+          </section>
+          {!cancelled && <UpiPay invoice={invoice} business={business} />}
+          <section className="card overflow-hidden">
+            <PaymentHistory invoice={invoice} creditNotes={creditNotes} onChanged={load} />
+          </section>
+        </aside>
+      </div>
 
-      {showReturn && (
-        <ReturnModal invoice={invoice} creditNotes={creditNotes}
-          onClose={() => setShowReturn(false)} onSaved={fetchInvoice} />
-      )}
+      {/* Phones: the main actions stay at the bottom, Edit floating above them */}
+      <div className="lg:hidden sticky -bottom-4 z-20 pointer-events-none">
+        {editable && (
+          <div className="flex justify-end px-4 pb-3">
+            <Link to={`/invoices/${invoice._id}/edit`} className="btn-secondary h-12 px-5 text-base shadow-xl pointer-events-auto">
+              <Pencil className="w-4 h-4" /> Edit Invoice
+            </Link>
+          </div>
+        )}
+        <nav aria-label="Invoice actions" className="flex border-t border-slate-200 bg-white px-2 py-2 shadow-[0_-6px_20px_-12px_rgb(14_20_49_/_0.25)] pointer-events-auto">
+          {actions.map(([key, label, Icon, run, disabled]) => (
+            <BarButton key={key} icon={Icon} label={label} onClick={run} disabled={disabled} />
+          ))}
+        </nav>
+      </div>
 
-      {showPayment && (
-        <PaymentModal
-          title="Record payment"
-          endpoint={`/invoices/${invoice._id}/payment`}
-          balance={invoice.balanceAmount}
-          onClose={() => setShowPayment(false)}
-          onSuccess={fetchInvoice}
-        />
+      {panel === "menu" && (
+        <InvoiceMenu invoice={invoice} creditNotes={creditNotes} copies={copies} onClose={() => setPanel("")}
+          onChanged={load} onDeleted={() => navigate("/invoices")} />
+      )}
+      {(panel === "einvoice" || panel === "eway") && (
+        <ComplianceSheet kind={panel} invoice={invoice} business={business} onClose={() => setPanel("")} onSaved={load} />
+      )}
+      {panel === "pay" && (
+        <PaymentModal title="Record payment" endpoint={`/invoices/${invoice._id}/payment`} balance={invoice.balanceAmount}
+          onClose={() => setPanel("")} onSuccess={load} />
       )}
     </div>
   );

@@ -62,6 +62,8 @@ const userSchema = new mongoose.Schema(
     supplierSignatureUrl: { type: String, default: "" },
 
     // Invoice preferences
+    // Deleted bills still count towards the month's plan limit
+    invoiceDeletions: { month: { type: String, default: "" }, count: { type: Number, default: 0 } },
     invoicePrefix: { type: String, default: "", uppercase: true, trim: true, maxlength: 5 },
     invoiceStartNumber: { type: Number, default: 1, min: 1, max: 99999 },
     defaultTerms: { type: String, default: "" },

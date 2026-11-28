@@ -5,7 +5,11 @@ const { canAddItem } = require("../middleware/checkPlan");
 const { protect } = require("../middleware/auth");
 const { escapeRegex } = require("../services/invoiceNumber");
 
-const STOCK_FIELDS = ["purchasePrice", "trackStock", "openingStock", "stockSince", "lowStockAt"];
+const STOCK_FIELDS = [
+  "purchasePrice", "trackStock", "openingStock", "stockSince", "lowStockAt",
+  "purchaseTaxMode", "taxMode", "defaultQuantity", "discountType", "discountValue",
+  "cessType", "cessValue", "mrp", "wholesalePrice", "minWholesaleQty",
+];
 const pick = (body, keys) =>
   Object.fromEntries(keys.filter((k) => body[k] !== undefined && body[k] !== "").map((k) => [k, body[k]]));
 
@@ -91,6 +95,7 @@ router.post("/", canAddItem, async (req, res) => {
 
     const item = await Item.create({
       ...pick(req.body, STOCK_FIELDS),
+      category: String(req.body.category || ""),
       user: req.user._id,
       name,
       hsn: hsn || "",
@@ -145,6 +150,8 @@ router.put("/:id", async (req, res) => {
     if (gstPercent !== undefined) item.gstPercent = Number(gstPercent);
     if (description !== undefined) item.description = description;
     item.set(pick(req.body, STOCK_FIELDS));
+    // May be cleared, so an empty value counts
+    if (req.body.category !== undefined) item.category = String(req.body.category);
 
     await item.save();
 

@@ -4,6 +4,7 @@ const Plan         = require("../models/Plan");
 const Invoice      = require("../models/Invoice");
 const Buyer        = require("../models/Buyer");
 const Item         = require("../models/Item");
+const { deletedThisMonth } = require("../services/usage");
 const { sendError } = require("../services/common");
 
 // Auto-debit renewals reach us by webhook, which can lag the billing date
@@ -58,7 +59,7 @@ const canCreateInvoice = async (req, res, next) => {
       createdAt:   { $gte: startOfMonth },
     });
 
-    if (count >= limit) {
+    if (count + deletedThisMonth(req.user) >= limit) {
       return res.status(403).json({
         success:     false,
         limitReached: true,

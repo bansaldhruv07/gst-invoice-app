@@ -73,9 +73,15 @@ async function createCreditNote(req, res) {
     const quantity = Number(r.quantity);
     const left = Math.round((source.quantity - returned(lineId)) * 1000) / 1000;
     if (quantity > left) throw new BadRequest(`Only ${left} of ${source.name} can still be returned`);
+    // Fixed amounts are returned in proportion to the quantity coming back
+    const part = (amount) => Math.round(((amount * quantity) / source.quantity) * 100) / 100;
     return {
       item: source.item, name: source.name, hsn: source.hsn, unit: source.unit,
-      quantity, rate: source.rate, gstPercent: source.gstPercent,
+      description: source.description,
+      quantity, rate: source.rate, gstPercent: source.gstPercent, taxMode: source.taxMode,
+      discountType: "amount", discountValue: part(source.discountAmount || 0),
+      cessType: source.cessType,
+      cessValue: source.cessType === "amount" ? part(source.cessValue || 0) : source.cessValue,
     };
   });
 

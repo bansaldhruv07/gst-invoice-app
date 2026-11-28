@@ -56,6 +56,17 @@ const buyerSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    gstTreatment: {
+      type: String,
+      enum: {
+        values: ["", "registered", "composition", "unregistered", "consumer", "overseas", "sez"],
+        message: "That GST treatment is not supported",
+      },
+      default: "",
+    },
+    // A label and value of the shop's own choosing
+    optionalField1: { type: String, trim: true, default: "", maxlength: 60 },
+    optionalValue1: { type: String, trim: true, default: "", maxlength: 200 },
     // What the buyer already owed when they were added here
     openingBalance: { type: Number, default: 0, min: 0 },
     openingPayments: [
