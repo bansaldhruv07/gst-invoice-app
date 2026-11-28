@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import api from "../api/axios";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -13,13 +12,6 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [canReset, setCanReset] = useState(false);
-
-  useEffect(() => {
-    api.get("/auth/options")
-      .then(({ data }) => setCanReset(data.passwordReset))
-      .catch(() => {});
-  }, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -29,7 +21,7 @@ export default function Login() {
     e.preventDefault();
 
     if (!form.email || !form.password) {
-      toast.error("Enter your email and password");
+      toast.error("Enter your email or mobile number, and your password");
       return;
     }
 
@@ -38,7 +30,7 @@ export default function Login() {
       await login(form.email, form.password);
       navigate("/dashboard");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Could not sign in");
+      toast.error(err.response?.data?.message || (err.response ? "Could not sign in" : "Could not reach the server. Check your internet and try again."));
     } finally {
       setLoading(false);
     }
@@ -58,12 +50,17 @@ export default function Login() {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="email" className="label">Email</label>
-          <input id="email" type="email" name="email" autoComplete="email" required
-            value={form.email} onChange={handleChange} className="input h-10" />
+          <label htmlFor="email" className="label">Email or mobile number</label>
+          <input id="email" type="text" name="email" autoComplete="username" autoCapitalize="none" spellCheck="false" required
+            placeholder="name@example.com or 98765 43210" value={form.email} onChange={handleChange} className="input h-10" />
         </div>
         <div>
-          <label htmlFor="password" className="label">Password</label>
+          <div className="flex items-baseline justify-between gap-3">
+            <label htmlFor="password" className="label">Password</label>
+            <Link to="/forgot-password" className="mb-1 text-sm font-medium text-brand-700 hover:underline">
+              Forgot password?
+            </Link>
+          </div>
           <div className="relative">
             <input id="password" type={showPassword ? "text" : "password"} name="password"
               autoComplete="current-password" required value={form.password}
@@ -75,13 +72,6 @@ export default function Login() {
             </button>
           </div>
         </div>
-        {canReset && (
-          <p className="text-right">
-            <Link to="/forgot-password" className="text-sm font-medium text-brand-700 hover:underline">
-              Forgot password?
-            </Link>
-          </p>
-        )}
         <button type="submit" disabled={loading} className="btn-primary w-full h-10">
           {loading ? "Signing in…" : "Sign in"}
         </button>

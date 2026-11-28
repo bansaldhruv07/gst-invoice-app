@@ -11,6 +11,8 @@ const CreditNote = require("../models/CreditNote");
 const Purchase = require("../models/Purchase");
 const Expense = require("../models/Expense");
 const StockAdjustment = require("../models/StockAdjustment");
+const Worker = require("../models/Worker");
+const Attendance = require("../models/Attendance");
 const { protect } = require("../middleware/auth");
 const { getUserPlan } = require("../middleware/checkPlan");
 const { escapeRegex } = require("../services/invoiceNumber");
@@ -27,6 +29,7 @@ router.get("/export", route(async (req, res) => {
   const sets = {
     buyers: Buyer, sellers: Seller, products: Item, invoices: Invoice, quotations: Quotation,
     creditNotes: CreditNote, purchases: Purchase, expenses: Expense, stockAdjustments: StockAdjustment,
+    workers: Worker, attendance: Attendance,
   };
   const profile = await User.findById(req.user._id)
     .select("-password -passwordChangedAt -subscription -resetTokenHash -resetTokenExpires -__v")

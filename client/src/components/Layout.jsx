@@ -10,11 +10,13 @@ import { AssistantProvider, useAssistant } from "../context/AssistantContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { ASSISTANT_NAME } from "../lib/assistant";
 import { useCan } from "../context/AuthContext";
+import { SHOW_ASSISTANT } from "../lib/flags";
 
 const TITLES = [
   [/^\/team/, "Team"],
   [/^\/dashboard$/, "Overview"],
   [/^\/assistant$/, ASSISTANT_NAME],
+  [/^\/attendance$/, "Attendance"],
   [/^\/invoices$/, "Invoices"],
   [/^\/invoices\/create$/, "New invoice"],
   [/^\/invoices\/[^/]+\/edit$/, "Edit invoice"],
@@ -124,13 +126,13 @@ function Shell() {
 
         <main className="relative flex-1 overflow-y-auto p-4 lg:p-6">
           {/* Room at the bottom so the floating button never covers content */}
-          <div key={pathname} className={`animate-rise ${onAssistant ? "h-full" : writing || hasBar ? "lg:pb-20" : "pb-20"}`}>
+          <div key={pathname} className={`animate-rise ${onAssistant ? "h-full" : !SHOW_ASSISTANT ? "" : writing || hasBar ? "lg:pb-20" : "pb-20"}`}>
             <Outlet />
           </div>
         </main>
       </div>
 
-      {!onAssistant && !assistantOpen && !writing && (
+      {SHOW_ASSISTANT && !onAssistant && !assistantOpen && !writing && (
         <button
           onClick={() => setAssistantOpen(true)}
           aria-label="Assistant"
@@ -141,7 +143,7 @@ function Shell() {
           Ask {ASSISTANT_NAME}
         </button>
       )}
-      <Assistant />
+      {SHOW_ASSISTANT && <Assistant />}
       {searchOpen && <CommandPalette onClose={closeSearch} />}
     </div>
   );

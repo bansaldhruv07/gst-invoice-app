@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import api from "../api/axios";
 import { ASSISTANT_NAME } from "../lib/assistant";
+import { SHOW_ASSISTANT } from "../lib/flags";
 import { useCan } from "../context/AuthContext";
 
 // [title, address, ability needed]
@@ -15,7 +16,8 @@ const ACTIONS = [
   ["Buyers", "/buyers"],
   ["Products", "/items"],
   ["Stock", "/stock", "stock"],
-  [`Ask ${ASSISTANT_NAME}`, "/assistant"],
+  ...(SHOW_ASSISTANT ? [[`Ask ${ASSISTANT_NAME}`, "/assistant"]] : []),
+  ["Attendance", "/attendance", "workers"],
   ["Expenses", "/expenses", "expenses"],
   ["Reports", "/reports", "reports"],
   ["GST returns", "/reports?tab=gst&period=last-month", "reports"],

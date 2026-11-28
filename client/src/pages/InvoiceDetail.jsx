@@ -19,6 +19,7 @@ import InvoiceMenu from "../components/invoice/InvoiceMenu";
 import ComplianceSheet from "../components/invoice/ComplianceSheet";
 import PaymentHistory from "../components/invoice/PaymentHistory";
 import { useCan } from "../context/AuthContext";
+import DesignBar from "../components/invoice/DesignBar";
 
 const COPIES = [
   ["recipient", "Original"],
@@ -42,7 +43,7 @@ function BarButton({ icon: Icon, label, onClick, disabled }) {
 export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { business } = useBusiness();
+  const { business, setBusiness } = useBusiness();
   const can = useCan();
 
   const [record, setRecord] = useState(null);
@@ -181,6 +182,7 @@ export default function InvoiceDetail() {
           </div>
 
           <div className="bg-white lg:card px-4 py-3 border-b border-slate-200 lg:mb-4">{copyBoxes}</div>
+          {can("settings") && business && <DesignBar business={business} onSaved={setBusiness} />}
           <div className="px-4 pt-3 lg:hidden">{status}</div>
 
           <div className="relative p-3 lg:p-0">

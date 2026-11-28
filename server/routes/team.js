@@ -6,17 +6,19 @@ const Activity = require("../models/Activity");
 const { protect } = require("../middleware/auth");
 const { getUserPlan } = require("../middleware/checkPlan");
 const { route, BadRequest } = require("../services/common");
+const { EMAIL, checkNewPassword, readMobile } = require("../services/identity");
 
 const MAX_MEMBERS = 10;
 const TEAM_ROLES = ["staff", "accountant"];
 
 const publicMember = (m) => ({
-  id: m._id, name: m.name, email: m.email, role: m.role, disabled: m.disabled, createdAt: m.createdAt,
+  id: m._id, name: m.name, email: m.email, mobile: m.mobile || "", role: m.role, disabled: m.disabled,
+  createdAt: m.createdAt,
 });
 
-function checkPassword(password) {
-  if (typeof password !== "string" || password.length < 8 || password.length > 72) {
-    throw new BadRequest("The password needs 8 to 72 characters");
+async function checkMobileFree(mobile, ownId) {
+  if (mobile && (await User.exists({ mobile, _id: { $ne: ownId } }))) {
+    throw new BadRequest("That mobile number is already used by another account");
   }
 }
 
@@ -52,18 +54,22 @@ team.post("/", route(async (req, res) => {
   }
   const { name, email, password, role } = req.body;
   if (typeof name !== "string" || !name.trim()) throw new BadRequest("Enter their name");
-  if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+  if (typeof email !== "string" || !EMAIL.test(email.trim())) {
     throw new BadRequest("Enter a valid email address");
   }
   if (!TEAM_ROLES.includes(role)) throw new BadRequest("Choose billing staff or accountant");
-  checkPassword(password);
+  const mobile = readMobile(req.body.mobile);
+  checkNewPassword(password, { email, mobile });
+  await checkMobileFree(mobile, null);
   if ((await User.countDocuments({ owner: req.user._id })) >= MAX_MEMBERS) {
     throw new BadRequest(`You can have up to ${MAX_MEMBERS} team logins`);
   }
   if (await User.exists({ email: email.trim().toLowerCase() })) {
     throw new BadRequest("That email already has an account");
   }
-  const member = await User.create({ name: name.trim(), email, password, role, owner: req.user._id });
+  const member = await User.create({
+    name: name.trim(), email, password, role, owner: req.user._id, ...(mobile && { mobile }),
+  });
   res.status(201).json({ success: true, member: publicMember(member) });
 }));
 
@@ -76,8 +82,13 @@ team.put("/:id", route(async (req, res) => {
     member.role = role;
   }
   if (disabled !== undefined) member.disabled = Boolean(disabled);
+  if (req.body.mobile !== undefined) {
+    const mobile = readMobile(req.body.mobile);
+    await checkMobileFree(mobile, member._id);
+    member.mobile = mobile || undefined;
+  }
   if (password !== undefined) {
-    checkPassword(password);
+    checkNewPassword(password, { email: member.email, mobile: member.mobile });
     member.password = password;
     member.passwordChangedAt = new Date();
   }

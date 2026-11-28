@@ -9,21 +9,15 @@ const security = require("../middleware/security");
 const { mailConfigured, sendMail } = require("../services/mailer");
 const { abilities } = require("../services/permissions");
 const { route, BadRequest } = require("../services/common");
+const { EMAIL, normaliseEmail, loginFilter, checkNewPassword, readMobile } = require("../services/identity");
+const { BILL_TEMPLATES, BILL_COLORS } = require("../services/billDesigns");
 
-const MIN_PASSWORD = 8;
 const RESET_MINUTES = 30;
+const WRONG_SIGN_IN = "Invalid email, mobile number or password";
+const MOBILE_TAKEN = "That mobile number is already used by another account";
 
-// Stored emails are lower-case, so lookups must be too
-const normaliseEmail = (email) => String(email).trim().toLowerCase();
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const isText = (...values) => values.every((v) => typeof v === "string" && v.trim());
-
-function checkNewPassword(password) {
-  if (typeof password !== "string" || password.length < MIN_PASSWORD) {
-    throw new BadRequest(`The password needs at least ${MIN_PASSWORD} characters`);
-  }
-  if (password.length > 72) throw new BadRequest("The password can be at most 72 characters");
-}
 
 // ─── Helper: generate JWT token ───────────────────────────────────────────────
 const generateToken = (userId) =>
@@ -35,7 +29,7 @@ const generateToken = (userId) =>
 
 const publicUser = (actor) => {
   const role = actor.owner ? actor.role : "owner";
-  return { id: actor._id, name: actor.name, email: actor.email, role, can: abilities(role) };
+  return { id: actor._id, name: actor.name, email: actor.email, mobile: actor.mobile || "", role, can: abilities(role) };
 };
 
 // What this server offers on the sign-in screens
@@ -48,15 +42,17 @@ router.get("/options", (req, res) => {
 router.post("/register", security.signupLimit, route(async (req, res) => {
   const { name, email, password } = req.body;
   if (!isText(name, email, password)) throw new BadRequest("Name, email and password are required");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new BadRequest("Enter a valid email address");
-  checkNewPassword(password);
+  if (!EMAIL.test(email.trim())) throw new BadRequest("Enter a valid email address");
+  const mobile = readMobile(req.body.mobile);
+  checkNewPassword(password, { email, mobile });
 
   if (await User.exists({ email: normaliseEmail(email) })) {
     throw new BadRequest("Email already registered");
   }
+  if (mobile && (await User.exists({ mobile }))) throw new BadRequest(MOBILE_TAKEN);
 
   // Only these fields are taken; the password is hashed by the model
-  const user = await User.create({ name: name.trim(), email, password });
+  const user = await User.create({ name: name.trim(), email, password, ...(mobile && { mobile }) });
 
   res.status(201).json({
     success: true,
@@ -67,14 +63,17 @@ router.post("/register", security.signupLimit, route(async (req, res) => {
 }));
 
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
+// "login" is an email or a mobile number; "email" is accepted from older pages
 router.post("/login", ...security.loginLimits, route(async (req, res) => {
-  const { email, password } = req.body;
-  if (!isText(email, password)) throw new BadRequest("Email and password are required");
+  const login = req.body.login ?? req.body.email;
+  const { password } = req.body;
+  if (!isText(login, password)) throw new BadRequest("Enter your email or mobile number, and your password");
 
-  const user = await User.findOne({ email: normaliseEmail(email) });
-  // The same answer whether the email or the password is wrong
+  const filter = loginFilter(login);
+  const user = filter && (await User.findOne(filter));
+  // The same answer whether the name or the password is wrong
   if (!user || !(await user.comparePassword(password)) || user.disabled) {
-    throw new BadRequest("Invalid email or password", 401);
+    throw new BadRequest(WRONG_SIGN_IN, 401);
   }
   if (user.owner) {
     const { plan } = await getUserPlan(user.owner);
@@ -99,10 +98,12 @@ router.post("/forgot-password", security.forgotLimit, route(async (req, res) => 
       message: "Password reset by email is not set up yet. Please contact support.",
     });
   }
-  const { email } = req.body;
-  if (!isText(email)) throw new BadRequest("Enter your email address");
+  const login = req.body.login ?? req.body.email;
+  if (!isText(login)) throw new BadRequest("Enter your email address or mobile number");
 
-  const user = await User.findOne({ email: normaliseEmail(email), disabled: { $ne: true } });
+  // The link always goes to the account's email address
+  const filter = loginFilter(login);
+  const user = filter && (await User.findOne({ ...filter, disabled: { $ne: true } }));
   if (user) {
     const token = crypto.randomBytes(32).toString("hex");
     await User.updateOne(
@@ -118,7 +119,7 @@ router.post("/forgot-password", security.forgotLimit, route(async (req, res) => 
     }).catch((err) => console.error("Password reset email:", err.message));
   }
 
-  res.json({ success: true, message: "If that email has an account, a reset link is on its way." });
+  res.json({ success: true, message: "If there is an account, a reset link is on its way to its email address." });
 }));
 
 router.post("/reset-password", security.resetLimit, route(async (req, res) => {
@@ -164,6 +165,27 @@ router.put("/password", protect, security.passwordLimit, route(async (req, res) 
   res.json({ success: true, message: "Password changed", token: generateToken(person._id) });
 }));
 
+// The mobile number a person signs in with; empty removes it
+router.put("/mobile", protect, security.passwordLimit, route(async (req, res) => {
+  const mobile = readMobile(req.body.mobile);
+  const person = await User.findById(req.actor._id);
+  // Changing how an account is signed in to needs the password again.
+  // 400, not 401: a wrong password here must not sign the user out
+  if (!(await person.comparePassword(String(req.body.currentPassword || "")))) {
+    throw new BadRequest("The current password is not correct");
+  }
+  if (mobile && (await User.exists({ mobile, _id: { $ne: person._id } }))) {
+    throw new BadRequest(MOBILE_TAKEN);
+  }
+  person.mobile = mobile || undefined;
+  await person.save();
+  res.json({
+    success: true,
+    message: mobile ? "You can now sign in with this mobile number" : "Mobile number removed",
+    user: publicUser(person),
+  });
+}));
+
 // ─── Business profile ────────────────────────────────────────────────────────
 // API field name -> User field name
 const PROFILE_FIELDS = {
@@ -187,7 +209,12 @@ const PROFILE_FIELDS = {
   invoiceStartNumber: "invoiceStartNumber",
   defaultTerms: "defaultTerms",
   upiId: "upiId",
+  template: "billTemplate",
+  color: "billColor",
 };
+
+// Pictures are kept inside the record, or linked from a web address
+const IMAGE = /^(https?:\/\/|data:image\/(png|jpe?g|webp|gif);base64,)/i;
 
 // Each business sees only its own details; there are no server-wide defaults.
 const toProfile = (user) =>
@@ -202,6 +229,19 @@ router.get("/supplier-info", protect, (req, res) => {
 router.put("/supplier-info", protect, route(async (req, res) => {
   const user = await User.findById(req.user._id);
   if (!user) throw new BadRequest("User not found", 404);
+
+  const { template, color } = req.body;
+  if (template !== undefined && !BILL_TEMPLATES.includes(template)) {
+    throw new BadRequest("Choose one of the bill designs");
+  }
+  if (color !== undefined && !BILL_COLORS.includes(color)) throw new BadRequest("Choose one of the bill colours");
+  for (const [key, label] of [["logoUrl", "logo"], ["signatureUrl", "signature"]]) {
+    const value = req.body[key];
+    // A value saved earlier is left alone
+    if (value && value !== user[PROFILE_FIELDS[key]] && !IMAGE.test(String(value))) {
+      throw new BadRequest(`The ${label} must be a picture or a web address`);
+    }
+  }
 
   // Only fields present in the request are changed
   for (const [key, field] of Object.entries(PROFILE_FIELDS)) {

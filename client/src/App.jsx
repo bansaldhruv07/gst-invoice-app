@@ -9,6 +9,9 @@ import Pricing from "./pages/Pricing";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
 import AssistantPage from "./pages/AssistantPage";
+import Attendance from "./pages/Attendance";
+import TryInvoice from "./pages/TryInvoice";
+import { SHOW_ASSISTANT } from "./lib/flags";
 import Register from "./pages/Register";
 import Overview from "./pages/Overview";
 import Invoices from "./pages/Invoices";
@@ -116,6 +119,8 @@ export default function App() {
             />
 
             <Route path="/" element={<Home />} />
+            {/* One free bill, with or without an account */}
+            <Route path="/try" element={<TryInvoice />} />
             <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
             {/* Opened from an email, so it works whether or not someone is signed in */}
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -128,7 +133,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route path="assistant" element={<AssistantPage />} />
+              {SHOW_ASSISTANT && <Route path="assistant" element={<AssistantPage />} />}
+              <Route path="attendance" element={<Allow ability="workers"><Attendance /></Allow>} />
               <Route path="/pricing" element={<Allow ability="plans"><Pricing /></Allow>} />
               <Route path="dashboard" element={<Overview />} />
               <Route path="invoices" element={<Invoices />} />

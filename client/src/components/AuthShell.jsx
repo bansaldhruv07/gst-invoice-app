@@ -1,8 +1,8 @@
-// Sign-in and sign-up screens: the form beside an animated tour of the app.
+// Sign-in and sign-up screens: the form beside the animation of making a bill.
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, FileText } from "lucide-react";
 import { Logo } from "./Logo";
-import PanelShowcase from "./showcase/PanelShowcase";
+import PhoneDemo from "./showcase/PhoneDemo";
 import { FEATURES } from "./showcase/features";
 
 export default function AuthShell({ title, subtitle, children }) {
@@ -22,7 +22,8 @@ export default function AuthShell({ title, subtitle, children }) {
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
-        <PanelShowcase />
+        <h2 className="relative flex-shrink-0 text-center text-2xl xl:text-3xl font-bold">Make a GST bill in four steps</h2>
+        <PhoneDemo dark className="relative flex-1 min-h-0" />
         <p className="relative flex-shrink-0 text-center text-xs text-brand-200">Sample data shown</p>
       </aside>
 
@@ -40,7 +41,7 @@ export default function AuthShell({ title, subtitle, children }) {
 
             <div className="mt-8 border-t border-slate-200 pt-5 lg:hidden">
               <ul className="flex flex-wrap gap-2">
-                {FEATURES.map((f) => (
+                {[{ id: "bills", tab: "GST invoices", icon: FileText }, ...FEATURES].map((f) => (
                   <li key={f.id} className="flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand-700">
                     <f.icon className="w-3.5 h-3.5" /> {f.tab}
                   </li>

@@ -72,7 +72,7 @@ test("the free plan stops at its invoice limit", async () => {
   const free = await app.register();
   const buyer = (await app.call("POST", "/buyers", { token: free.token, body: { name: "B" } })).data.buyer;
   const make = () => app.call("POST", "/invoices", { token: free.token, body: { buyerId: buyer._id, items: [s.line(1)] } });
-  for (let i = 0; i < 10; i += 1) assert.equal((await make()).status, 201);
+  for (let i = 0; i < 20; i += 1) assert.equal((await make()).status, 201);
   assert.equal((await make()).status, 403);
 });
 

@@ -18,14 +18,14 @@ const ROW_HEIGHT = 5.29;
 const WRAP_STEP = 3.05;
 const CONTINUED_LIMIT = BOTTOM - ROW_HEIGHT; // other pages: items may run to here
 
-const COPY_LABELS = [
+export const COPY_LABELS = [
   ["recipient", "Original for Recipient"],
   ["transporter", "Duplicate for Transporter"],
   ["supplier", "Triplicate for Supplier"],
 ];
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
-const money = (n) =>
+export const money = (n) =>
   round2(n).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -51,7 +51,7 @@ export function registerFonts(doc, { regular, bold }) {
 }
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
-function createPen(doc) {
+export function createPen(doc) {
   const font = (size, bold) => {
     doc.setFont(FONT, bold ? "bold" : "normal");
     doc.setFontSize(size);
@@ -106,7 +106,7 @@ function taxGroups(invoice) {
 
 // The rate column shows the price of one unit before tax. A rate typed with tax
 // included is worked back, to three decimals.
-function unitRate(item, invoice) {
+export function unitRate(item, invoice) {
   if ((item.taxMode || invoice.taxMode) !== "inclusive" || (!item.gstPercent && !item.cessAmount)) {
     return money(item.rate);
   }

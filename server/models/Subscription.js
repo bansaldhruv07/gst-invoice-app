@@ -18,6 +18,8 @@ const subscriptionSchema = new mongoose.Schema({
     default: "trialing",
   },
 
+  billingPeriod: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
+
   // Razorpay subscription ID
   razorpaySubscriptionId: { type: String, default: "" },
 
@@ -39,6 +41,7 @@ const subscriptionSchema = new mongoose.Schema({
   payments: [{
     razorpayPaymentId: String,
     amount:            Number,
+    period:            String,
     status:            String,
     paidAt:            Date,
   }],

@@ -105,7 +105,7 @@ test("deleting does not give back the month's free allowance", async () => {
   const buyer = (await app.call("POST", "/buyers", { token: free.token, body: { name: "B" } })).data.buyer;
   const make = () => app.call("POST", "/invoices", { token: free.token, body: { buyerId: buyer._id, items: [s.line(1)] } });
   let last;
-  for (let i = 0; i < 10; i += 1) last = (await make()).data.invoice;
+  for (let i = 0; i < 20; i += 1) last = (await make()).data.invoice;
   await app.call("DELETE", `/invoices/${last._id}`, { token: free.token });
   assert.equal((await make()).status, 403);
 });

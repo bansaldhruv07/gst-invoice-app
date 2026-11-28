@@ -7,14 +7,17 @@ import AuthShell from "../components/AuthShell";
 
 const FIELDS = [
   { name: "name", label: "Your name", type: "text", autoComplete: "name" },
-  { name: "email", label: "Email", type: "email", autoComplete: "email" },
+  { name: "mobile", label: "Mobile number", type: "tel", autoComplete: "tel-national", optional: true, note: "Optional. You can sign in with it." },
+  { name: "email", label: "Email", type: "email", autoComplete: "email", note: "Password reset links are sent here." },
 ];
+
+const isMobile = (value) => /^(\+?91|0)?[6-9]\d{9}$/.test(value.replace(/[\s()-]/g, ""));
 
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
 
-  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
+  const [form, setForm] = useState({ name: "", mobile: "", email: "", password: "", confirmPassword: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -29,6 +32,10 @@ export default function Register() {
       toast.error("Fill in all the fields");
       return;
     }
+    if (form.mobile.trim() && !isMobile(form.mobile)) {
+      toast.error("Enter a 10-digit mobile number");
+      return;
+    }
     if (form.password.length < 8) {
       toast.error("Password must be at least 8 characters");
       return;
@@ -40,7 +47,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await register(form.name, form.email, form.password);
+      await register(form.name, form.email, form.password, form.mobile);
       toast.success("Account created");
       navigate("/dashboard");
     } catch (err) {
@@ -65,10 +72,11 @@ export default function Register() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {FIELDS.map((f) => (
+        {FIELDS.map(({ label, note, optional, ...f }) => (
           <div key={f.name}>
-            <label htmlFor={f.name} className="label">{f.label}</label>
-            <input id={f.name} {...f} required value={form[f.name]} onChange={handleChange} className="input h-10" />
+            <label htmlFor={f.name} className="label">{label}</label>
+            <input id={f.name} {...f} required={!optional} value={form[f.name]} onChange={handleChange} className="input h-10" />
+            {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
           </div>
         ))}
         <div>

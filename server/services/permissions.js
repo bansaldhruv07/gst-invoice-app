@@ -9,7 +9,7 @@ const rule = (methods, pattern) => [methods.split(" "), new RegExp(`^/api/${patt
 // Every signed-in person
 const SHARED = [
   rule("GET", "auth/(me|supplier-info)"),
-  rule("PUT", "auth/password"),
+  rule("PUT", "auth/(password|mobile)"),
   rule("GET", "subscriptions/me"),
   rule("GET", "insights"),
   rule("GET", "data/search"),
@@ -95,6 +95,8 @@ const ABILITIES = {
   settings: ["PUT", "auth/supplier-info"],
   plans: ["POST", "subscriptions/create-order"],
   team: ["GET", "team"],
+  workers: ["GET", "workers"],
+  editWorkers: ["POST", "workers"],
 };
 
 const abilities = (role) =>

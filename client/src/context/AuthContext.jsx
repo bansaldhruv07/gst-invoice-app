@@ -43,11 +43,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Register ──────────────────────────────────────────────────────────────
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, mobile) => {
     const { data } = await api.post("/auth/register", {
       name,
       email,
       password,
+      mobile,
     });
 
     // Save token and user to localStorage for persistence
@@ -58,13 +59,20 @@ export function AuthProvider({ children }) {
   };
 
   // ── Login ─────────────────────────────────────────────────────────────────
-  const login = async (email, password) => {
-    const { data } = await api.post("/auth/login", { email, password });
+  // `login` is an email or a mobile number
+  const login = async (name, password) => {
+    const { data } = await api.post("/auth/login", { login: name, password });
 
     localStorage.setItem("token", data.token);
     localStorage.setItem("user",  JSON.stringify(data.user));
     setUser(data.user);
     return data;
+  };
+
+  // After a change to the signed-in person's own details
+  const updateUser = (next) => {
+    localStorage.setItem("user", JSON.stringify(next));
+    setUser(next);
   };
 
   // ── Logout ────────────────────────────────────────────────────────────────
@@ -75,7 +83,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, register, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

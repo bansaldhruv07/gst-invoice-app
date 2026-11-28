@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const { BILL_TEMPLATES, BILL_COLORS } = require("../services/billDesigns");
 
 const userSchema = new mongoose.Schema(
   {
@@ -20,6 +21,8 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
     },
+    // Optional second way to sign in: ten digits, left out when not given
+    mobile: { type: String, trim: true, default: undefined },
     // Staff logins point at the business owner's account; owners have none
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     role: { type: String, enum: ["owner", "staff", "accountant"], default: "owner" },
@@ -68,11 +71,20 @@ const userSchema = new mongoose.Schema(
     invoiceStartNumber: { type: Number, default: 1, min: 1, max: 99999 },
     defaultTerms: { type: String, default: "" },
     upiId: { type: String, default: "", trim: true, maxlength: 100 },
+    // How printed bills look
+    billTemplate: { type: String, enum: BILL_TEMPLATES, default: "classic" },
+    billColor: { type: String, enum: BILL_COLORS, default: "blue" },
   },
 
   {
     timestamps: true, // adds createdAt and updatedAt automatically
   },
+);
+
+// One account per mobile number; accounts without one are left out
+userSchema.index(
+  { mobile: 1 },
+  { unique: true, partialFilterExpression: { mobile: { $type: "string" } } },
 );
 
 // ─── Pre-save hook: hash password before saving to DB ─────────────────────────

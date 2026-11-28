@@ -1,7 +1,6 @@
 // The home page tour: pick a feature on the left, watch it on the right.
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
-import { Check, ArrowRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { FEATURES } from "./features";
 import FitStage from "./FitStage";
 import Progress from "./Progress";
@@ -67,7 +66,7 @@ export default function ProductTour() {
         ))}
       </div>
 
-      <ul role="tablist" aria-label="Features" className="hidden lg:block space-y-2 min-h-[34rem]">
+      <ul role="tablist" aria-label="Features" className="hidden lg:block space-y-2 min-h-[31rem]">
         {FEATURES.map((f, i) => {
           const active = i === index;
           return (
@@ -110,12 +109,6 @@ export default function ProductTour() {
       <div key={feature.id} className="lg:hidden">
         <h3 className="mb-2 text-xl font-bold text-slate-900">{feature.title}</h3>
         <Details feature={feature} />
-      </div>
-
-      <div className="lg:col-span-2 text-center">
-        <Link to="/register" className="btn-primary h-12 px-6 text-base rounded-xl group">
-          Try it free <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-        </Link>
       </div>
     </div>
   );

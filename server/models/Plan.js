@@ -4,6 +4,9 @@ const planSchema = new mongoose.Schema({
   name:        { type: String, required: true }, // "free", "starter", "growth", "pro"
   displayName: { type: String, required: true }, // "Free", "Starter", etc.
   price:       { type: Number, required: true }, // monthly price in INR (0 for free)
+  listPrice:   { type: Number, default: 0 },     // regular monthly price, shown struck out
+  yearlyPrice: { type: Number, default: 0 },     // price of one year paid at once
+  version:     { type: Number, default: 1 },     // see services/seedPlans.js
   
   // Razorpay plan ID — created on Razorpay dashboard
   razorpayPlanId: { type: String, default: "" },
