@@ -17,6 +17,9 @@ const ENTRIES = [
   entry("PUT", `invoices/${ID}/status`, "Changed an invoice's status",
     (b) => `${b.invoice?.invoiceNumber} → ${b.invoice?.status}`),
   entry("POST", `invoices/${ID}/payment`, "Recorded a payment", invoiceNo),
+  entry("PUT", `invoices/${ID}/compliance`, "Saved e-invoice or e-way bill details", invoiceNo),
+  entry("PUT", `invoices/${ID}/signature`, "Changed the signature", invoiceNo),
+  entry("DELETE", `invoices/${ID}`, "Deleted an invoice", (b) => b.invoiceNumber),
   entry("POST", "quotations", "Created a quotation", quoteNo),
   entry("PUT", `quotations/${ID}`, "Edited a quotation", quoteNo),
   entry("PUT", `quotations/${ID}/status`, "Changed a quotation's status", quoteNo),
@@ -55,6 +58,10 @@ const ENTRIES = [
   entry("POST", "subscriptions/cancel", "Cancelled the plan"),
 ];
 
+// The record a change was made to, so each invoice can show its own history
+const targetOf = (body, path) =>
+  body.invoice?._id || body.quotation?._id || body.creditNote?.invoice || path.match(/[a-f0-9]{24}/i)?.[0] || null;
+
 // Called by the sign-in check for each request
 function watch(req, res, path) {
   const found = ENTRIES.find((e) => e.method === req.method && e.pattern.test(path));
@@ -75,6 +82,7 @@ function watch(req, res, path) {
       role: req.role,
       action: found.action,
       label: String(found.label(body) || "").slice(0, 200),
+      target: targetOf(body, path),
     }).catch((err) => console.error("Activity log:", err.message));
   });
 }

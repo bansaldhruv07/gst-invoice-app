@@ -28,6 +28,10 @@ A modern, robust, and feature-rich Goods and Services Tax (GST) Invoice Manageme
   - Applies **IGST** if the Buyer is in a different state.
 - Supports HSN/SAC codes, discount structures, and custom GST rates (e.g., 5%, 12%, 18%, 28%).
 - Generates the PDF tax invoice in the browser with `jspdf`. The printed format is defined in `client/src/lib/invoiceLayout.js`.
+- **Bill form in sections:** type, date and number; supplier, buyer, consignee, products, transport, other details, bank, terms and signature.
+- Each product line can have its own tax-inclusive setting, discount and CESS. The form (`client/src/lib/gst.js`) and the server (`server/services/gst.js`) are tested to give the same totals.
+- **Preview screen** shows the bill itself (drawn with `pdf.js`), with Original, Duplicate and Triplicate copies, print, download, share, payment and a menu for the rest.
+- E-invoice and e-way bill numbers can be recorded and printed. The app is **not** connected to the government portals.
 
 ### 4. **Purchase & Input Tax Credit (ITC) Tracking**
 - Record business purchases from suppliers/sellers.
@@ -240,6 +244,11 @@ The frontend application will spin up at [http://localhost:5173](http://localhos
 - `PUT /api/invoices/:id` — Modify an existing invoice
 - `PUT /api/invoices/:id/status` — Change payment status or cancel
 - `POST /api/invoices/:id/payment` — Record payment collections
+- `GET /api/invoices/next-number` — The number the next invoice would get
+- `PUT /api/invoices/:id/compliance` — Save the IRN and e-way bill number from the government portals
+- `PUT /api/invoices/:id/signature` — Place a signature image on one invoice (owner)
+- `GET /api/invoices/:id/history` — Who changed this invoice
+- `DELETE /api/invoices/:id` — Delete an invoice with no payments or credit notes (owner)
 
 ### Purchases
 - `GET /api/purchases` — View purchase bills (input records)

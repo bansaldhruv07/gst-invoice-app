@@ -51,6 +51,13 @@ function loadImage(url) {
   });
 }
 
+// The bill with the chosen copies, ready to preview, print or save
+export async function makeInvoicePdf(invoice, copies) {
+  return buildDocument(copies?.length ? { ...invoice, printCopies: copies } : invoice, {
+    suffix: copies?.length > 1 ? "All" : { transporter: "Dup", supplier: "Tri" }[copies?.[0]] || "Org",
+  });
+}
+
 async function buildDocument(record, options = {}) {
   const [{ data }, { default: jsPDF }, layout, fonts] = await Promise.all([
     api.get("/auth/supplier-info"),
@@ -98,8 +105,8 @@ export function canSharePdf() {
   }
 }
 
-export async function shareInvoicePdf(invoice) {
-  const { doc, fileName } = await buildDocument(invoice);
+export async function shareInvoicePdf(invoice, copies) {
+  const { doc, fileName } = await makeInvoicePdf(invoice, copies);
   const file = new File([doc.output("blob")], fileName, { type: "application/pdf" });
   try {
     await navigator.share({ files: [file], title: invoice.invoiceNumber });
@@ -150,6 +157,9 @@ export async function downloadCreditNotePdf(note, invoice) {
     grandTotal: note.grandTotal,
     printCopies: ["recipient"],
     signatureUrl: invoice.signatureUrl,
+    ewayBillNumber: "",
+    irn: "",
+    ackNumber: "",
   };
   return save(
     await buildDocument(record, {

@@ -14,6 +14,15 @@ const invoiceItemSchema = new mongoose.Schema({
   quantity:    { type: Number, required: true, min: 0 },
   rate:        { type: Number, required: true, min: 0 }, // price per unit as entered
   gstPercent:  { type: Number, default: 18 },
+  description: { type: String, default: "" },
+  taxMode:     { type: String, enum: ["", "exclusive", "inclusive"], default: "" },
+  // Discount on this line, before tax
+  discountType:   { type: String, enum: ["percent", "amount"], default: "percent" },
+  discountValue:  { type: Number, default: 0 },
+  discountAmount: { type: Number, default: 0 },
+  cessType:    { type: String, enum: ["percent", "amount"], default: "percent" },
+  cessValue:   { type: Number, default: 0 },
+  cessAmount:  { type: Number, default: 0 },
 
   // Calculated fields (stored so PDF doesn't need to recalculate)
   taxableAmount: { type: Number, default: 0 }, // quantity × rate
@@ -112,7 +121,8 @@ const invoiceSchema = new mongoose.Schema(
     totalSgst:     { type: Number, default: 0 },
     totalIgst:     { type: Number, default: 0 },
     totalTax:      { type: Number, default: 0 }, // totalCgst + totalSgst + totalIgst
-    totalAmount:   { type: Number, default: 0 }, // subTotal - discount + totalTax
+    totalCess:     { type: Number, default: 0 }, // not part of totalTax (GST)
+    totalAmount:   { type: Number, default: 0 }, // subTotal - discount + totalTax + totalCess
     roundOff:      { type: Number, default: 0 }, // difference after rounding
     grandTotal:    { type: Number, default: 0 }, // final rounded total
 
@@ -168,6 +178,27 @@ const invoiceSchema = new mongoose.Schema(
       bankHolderName: { type: String, default: "" },
     },
     signatureUrl: { type: String, default: "" }, // Base64 image
+    showBankDetails: { type: Boolean, default: true },
+    reverseCharge:   { type: Boolean, default: false },
+
+    // ── Shipped to ────────────────────────────────────────────────────────────
+    consigneeMode: { type: String, enum: ["same", "none", "other"], default: "same" },
+    consignee: {
+      name:      { type: String, default: "" },
+      gstin:     { type: String, default: "" },
+      address:   { type: String, default: "" },
+      city:      { type: String, default: "" },
+      state:     { type: String, default: "" },
+      pincode:   { type: String, default: "" },
+      stateCode: { type: String, default: "" },
+    },
+
+    // ── Numbers received from the government portals ─────────────────────────
+    ewayBillNumber: { type: String, default: "" },
+    ewayBillDate:   { type: Date, default: null },
+    irn:            { type: String, default: "" }, // e-invoice reference number
+    ackNumber:      { type: String, default: "" },
+    ackDate:        { type: Date, default: null },
     printCopies:  { type: [String], default: ["recipient", "transporter", "supplier"] },
   },
   {

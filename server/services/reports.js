@@ -59,17 +59,22 @@ const totalsOf = (docs) => ({
   sgst: sum(docs, (d) => d.totalSgst),
   igst: sum(docs, (d) => d.totalIgst),
   tax: sum(docs, (d) => d.totalTax),
+  cess: sum(docs, (d) => d.totalCess),
   total: sum(docs, (d) => d.grandTotal),
 });
+
+const { costOf: unitCost } = require("./cost");
 
 // Input tax can only be claimed on a tax invoice from a registered seller
 const claimsCredit = (p) => Boolean(p.seller?.gstin) && p.purchaseType !== "bill_of_supply";
 
 async function summaryReport(userId, from, to) {
   const { invoices, notes, purchases, expenses } = await loadPeriod(userId, from, to);
-  const items = await Item.find({ user: userId }).select("name purchasePrice").lean();
-  const costById = new Map(items.map((i) => [String(i._id), i.purchasePrice || 0]));
-  const costByName = new Map(items.map((i) => [normaliseName(i.name), i.purchasePrice || 0]));
+  const items = await Item.find({ user: userId })
+    .select("name purchasePrice purchaseTaxMode gstPercent")
+    .lean();
+  const costById = new Map(items.map((i) => [String(i._id), unitCost(i)]));
+  const costByName = new Map(items.map((i) => [normaliseName(i.name), unitCost(i)]));
   const costOf = (l) => costById.get(String(l.item)) || costByName.get(normaliseName(l.name)) || 0;
 
   const products = new Map();
@@ -291,6 +296,7 @@ async function gstReport(user, from, to) {
     gstr3b: {
       outward,
       exempt,
+      cess: round2(sum(invoices, (i) => i.totalCess) - sum(notes, (n) => n.totalCess)),
       itc,
       outputTax: outTax,
       inputTax: inTax,

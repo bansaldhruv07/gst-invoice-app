@@ -82,6 +82,7 @@ export default function App() {
           {/* Toast notifications */}
           <Toaster
             position="bottom-center"
+            containerStyle={{ bottom: 88 }}
             toastOptions={{
               duration: 3000,
               style: {

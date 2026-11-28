@@ -23,6 +23,7 @@ const creditNoteSchema = new mongoose.Schema(
     totalSgst: { type: Number, default: 0 },
     totalIgst: { type: Number, default: 0 },
     totalTax: { type: Number, default: 0 },
+    totalCess: { type: Number, default: 0 },
     roundOff: { type: Number, default: 0 },
     grandTotal: { type: Number, default: 0 },
   },

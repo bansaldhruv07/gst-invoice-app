@@ -132,6 +132,60 @@
     transform: none;
   }
 
+  /* A screen's own top bar on phones replaces the usual header */
+  .page-bar {
+    display: none;
+  }
+  @media (max-width: 1023px) {
+    .page-bar:not(:empty) {
+      display: flex;
+    }
+    .page-bar:not(:empty) + .default-bar {
+      display: none;
+    }
+    .assistant-button[data-desktop-only] {
+      display: none;
+    }
+  }
+
+  /* An input written on a line */
+  .line-input {
+    @apply block w-full h-10 min-w-0 bg-transparent border-0 border-b-2 border-slate-200 rounded-none px-0 text-sm font-semibold text-slate-800 transition focus:outline-none focus:border-brand-500 read-only:border-dashed;
+  }
+  /* An input that fills a cell (see mobile/Rows) */
+  .cell-input {
+    @apply block w-full min-w-0 h-9 bg-transparent border-0 p-0 text-[15px] font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none disabled:text-slate-400;
+  }
+  .form-lines > .sm\:col-span-2 {
+    grid-column: span 2 / span 2;
+  }
+  /* On phones, forms use lines instead of boxes */
+  @media (max-width: 639px) {
+    .form-lines .input {
+      @apply border-0 border-b border-slate-300 rounded-none shadow-none px-0 bg-transparent;
+    }
+    .form-lines .input:focus {
+      @apply border-b-2 border-brand-600 ring-0;
+    }
+  }
+  /* An on/off switch made from a checkbox */
+  .switch {
+    @apply relative w-12 h-7 flex-shrink-0 appearance-none rounded-full bg-slate-300 cursor-pointer transition-colors;
+  }
+  .switch::after {
+    content: "";
+    @apply absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform;
+  }
+  .switch:checked {
+    @apply bg-brand-600;
+  }
+  .switch:checked::after {
+    @apply translate-x-5;
+  }
+  .animate-sheet {
+    animation: sheet-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+
   /* Feature tour */
   .animate-progress {
     transform-origin: left;
@@ -165,6 +219,11 @@
   }
 }
 
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
 @keyframes progress {
   from {
     transform: scaleX(0);

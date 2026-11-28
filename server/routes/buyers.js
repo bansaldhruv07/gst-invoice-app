@@ -3,9 +3,23 @@ const router = express.Router();
 const Buyer = require("../models/Buyer");
 const Invoice = require("../models/Invoice");
 const Quotation = require("../models/Quotation");
+const Seller = require("../models/Seller");
 const { protect } = require("../middleware/auth");
 const { escapeRegex } = require("../services/invoiceNumber");
 const { canAddBuyer } = require("../middleware/checkPlan");
+
+const EXTRA_FIELDS = ["gstTreatment", "optionalField1", "optionalValue1"];
+const pickExtra = (body) =>
+  Object.fromEntries(EXTRA_FIELDS.filter((k) => body[k] !== undefined).map((k) => [k, String(body[k] ?? "")]));
+
+// For a party the shop also buys from. Only the owner manages sellers.
+async function addAsSeller(req, buyer) {
+  if (req.role !== "owner") return;
+  const name = new RegExp(`^${escapeRegex(buyer.name)}$`, "i");
+  if (await Seller.exists({ user: req.user._id, name })) return;
+  const { gstin, address, city, state, pincode, mobile, email } = buyer;
+  await Seller.create({ user: req.user._id, name: buyer.name, gstin, address, city, state, pincode, mobile, email });
+}
 
 // All buyer routes require login — apply protect to every route in this file
 router.use(protect);
@@ -78,6 +92,7 @@ router.post("/", canAddBuyer, async (req, res) => {
     const buyer = await Buyer.create({
       openingBalance: Number(req.body.openingBalance) || 0,
       creditLimit: Number(req.body.creditLimit) || 0,
+      ...pickExtra(req.body),
       user: req.user._id, // tie buyer to logged-in user
       name,
       gstin: gstin || "",
@@ -88,6 +103,8 @@ router.post("/", canAddBuyer, async (req, res) => {
       mobile: mobile || "",
       email: email || "",
     });
+
+    if (req.body.alsoSeller) await addAsSeller(req, buyer);
 
     res.status(201).json({
       success: true,
@@ -150,8 +167,11 @@ router.put("/:id", async (req, res) => {
       buyer.openingBalance = opening;
     }
 
+    buyer.set(pickExtra(req.body));
+
     // pre-save hook will re-extract stateCode from new GSTIN automatically
     await buyer.save();
+    if (req.body.alsoSeller) await addAsSeller(req, buyer);
 
     res.json({
       success: true,

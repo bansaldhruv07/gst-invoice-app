@@ -50,8 +50,21 @@ const itemSchema = new mongoose.Schema(
         message: "That GST rate is not supported",
       },
     },
-    // What the item costs to buy (excl. GST); used for profit and stock value
+    // What the item costs to buy; used for profit and stock value
     purchasePrice: { type: Number, default: 0, min: 0 },
+    purchaseTaxMode: { type: String, enum: ["exclusive", "inclusive"], default: "exclusive" },
+    // Whether the selling price already includes GST
+    taxMode: { type: String, enum: ["exclusive", "inclusive"], default: "exclusive" },
+    // Filled into a new bill line
+    defaultQuantity: { type: Number, default: 1, min: 0 },
+    discountType: { type: String, enum: ["percent", "amount"], default: "percent" },
+    discountValue: { type: Number, default: 0, min: 0 },
+    cessType: { type: String, enum: ["percent", "amount"], default: "percent" },
+    cessValue: { type: Number, default: 0, min: 0 },
+    category: { type: String, trim: true, default: "", maxlength: 60 },
+    mrp: { type: Number, default: 0, min: 0 },
+    wholesalePrice: { type: Number, default: 0, min: 0 },
+    minWholesaleQty: { type: Number, default: 0, min: 0 },
     // Stock is worked out from this opening count plus later purchases, sales,
     // returns and adjustments
     trackStock: { type: Boolean, default: false },

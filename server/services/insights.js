@@ -10,6 +10,7 @@ const Item = require("../models/Item");
 const { getUserPlan } = require("../middleware/checkPlan");
 const { computeStock } = require("./stock");
 const { claimsCredit } = require("./reports");
+const { deletedThisMonth } = require("./usage");
 const { round2, sum: total, istDate } = require("./common");
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -191,7 +192,8 @@ async function buildInsights(user) {
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
-  const created = invoices.filter((i) => new Date(i.createdAt) >= monthStart).length;
+  const created =
+    invoices.filter((i) => new Date(i.createdAt) >= monthStart).length + deletedThisMonth(user);
   const limits = planInfo.plan?.limits || {};
   const plan = {
     name: planInfo.plan?.displayName || "Free",

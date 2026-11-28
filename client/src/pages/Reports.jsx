@@ -179,6 +179,7 @@ function Gst({ report, file }) {
           rows={[
             ["Exempt and nil-rated sales", gstr3b.exempt],
             ["Tax collected", gstr3b.outputTax],
+            ...(gstr3b.cess ? [["CESS collected (paid separately)", gstr3b.cess]] : []),
             ["Input credit", -gstr3b.inputTax],
             ...(gstr3b.carryForward ? [["Credit to carry forward", gstr3b.carryForward]] : []),
             ["Estimated tax payable", gstr3b.payable, true],

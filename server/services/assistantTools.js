@@ -279,6 +279,7 @@ const drafts = {
       if (!name) throw new BadRequest("Every item needs a name");
       const matches = matchByName(catalogue, name);
       const product = matches.length === 1 ? matches[0] : null;
+      const fromProduct = Boolean(product) && (line.rate === undefined || line.rate === null || line.rate === "");
       const rate = line.rate ?? product?.price;
       if (rate === undefined || rate === null || rate === "") {
         throw new BadRequest(`What is the rate for ${product?.name || name}?`);
@@ -286,6 +287,12 @@ const drafts = {
       const gstPercent = line.gst_percent ?? product?.gstPercent ?? 18;
       if (line.gst_percent === undefined && !product) assumptions.push(`${name}: GST taken as 18%`);
       return {
+        // A price taken from the product follows how that product is priced
+        ...(product && { cessType: product.cessType, cessValue: product.cessValue }),
+        // The product's price brings its discount with it, and its tax setting
+        // unless the person said the rates include GST
+        ...(fromProduct && { discountType: product.discountType, discountValue: product.discountValue }),
+        ...(fromProduct && !input.rates_include_gst && { taxMode: product.taxMode }),
         item: product?._id ? String(product._id) : null,
         name: product?.name || name,
         hsn: product?.hsn || "",
@@ -297,7 +304,7 @@ const drafts = {
     });
 
     const taxMode = input.rates_include_gst ? "inclusive" : "exclusive";
-    const taxType = taxTypeFor(user.supplierStateCode || "07", buyer?.stateCode || "");
+    const taxType = taxTypeFor(user.supplierStateCode || "07", buyer?.stateCode || "", buyer?.gstTreatment);
     const totals = computeTotals(lines, { taxType, taxMode });
     if (!buyer) assumptions.unshift(`${buyerName} is new and will be added as a buyer (billed as same state)`);
 

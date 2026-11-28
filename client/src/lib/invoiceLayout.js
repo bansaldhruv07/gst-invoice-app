@@ -104,6 +104,17 @@ function taxGroups(invoice) {
   ];
 }
 
+// The rate column shows the price of one unit before tax. A rate typed with tax
+// included is worked back, to three decimals.
+function unitRate(item, invoice) {
+  if ((item.taxMode || invoice.taxMode) !== "inclusive" || (!item.gstPercent && !item.cessAmount)) {
+    return money(item.rate);
+  }
+  const percent = item.cessType === "amount" ? 0 : item.cessValue || 0;
+  const fixed = item.cessType === "amount" && item.quantity ? (item.cessValue || 0) / item.quantity : 0;
+  return (Math.max(0, item.rate - fixed) / (1 + ((item.gstPercent || 0) + percent) / 100)).toFixed(3);
+}
+
 // ─── Static top section (repeated on every page) ──────────────────────────────
 function drawHeader(doc, pen, { seller, logo, title, copy }) {
   const { text, h, v } = pen;
@@ -149,7 +160,7 @@ function drawHeader(doc, pen, { seller, logo, title, copy }) {
 // note) pass their own rows and keep the same layout.
 function invoiceMeta(invoice, seller) {
   const left = [
-    ["Reverse Charge", "No"],
+    ["Reverse Charge", invoice.reverseCharge ? "Yes" : "No"],
     ["Invoice No.", invoice.invoiceNumber],
     ["Invoice Date", formatBillDate(invoice.invoiceDate)],
     ["State", seller.state],
@@ -236,7 +247,7 @@ function drawParty(pen, party, offset) {
   text(`: ${party.stateCode || ""}`, codeValueX, 98.45);
 }
 
-function drawParties(pen, buyer) {
+function drawParties(pen, buyer, consignee) {
   const { text, h, v } = pen;
   text("Details of Receiver | Billed to:", 56.6, 75.07, { bold: true, align: "center" });
   text("Details of Consignee | Shipped to:", 153.2, 75.07, { bold: true, align: "center" });
@@ -248,7 +259,7 @@ function drawParties(pen, buyer) {
     labelX: 9.62, colonX: 25.29, valueX: 28.78, codeX: 84.63, codeValueX: 96.21,
     nameY: 80.97, addressY: 86.05, gstinY: 93.16,
   });
-  drawParty(pen, buyer, {
+  drawParty(pen, consignee, {
     labelX: 105.56, colonX: 122.03, valueX: 125.63, codeX: 181.17, codeValueX: 195.61,
     nameY: 80.36, addressY: 85.44, gstinY: 92.76,
   });
@@ -302,16 +313,21 @@ function drawItem(pen, row, cols, groups, top) {
 
   text(index + 1, center(0), y, { align: "center" });
   nameLines.forEach((line, i) => text(line, cols[1] + 0.67, y + i * WRAP_STEP));
+  // Description, discount and CESS in smaller type under the name
+  row.extras.forEach((line, i) =>
+    text(line, cols[1] + 0.67, y + (nameLines.length + i) * WRAP_STEP, { size: 6.34, max: cols[2] - cols[1] - 1.3 }),
+  );
   text(item.hsn, cols[2] + 0.72, y, { max: 18 });
   text(item.quantity, center(3), y, { align: "center", max: 7.8 });
   text(String(item.unit || "").toUpperCase(), center(4), y, { align: "center", max: 8.6 });
-  text(money(item.rate), cols[6] - 0.76, y, { align: "right", max: 12.8 });
+  text(row.rate, cols[6] - 0.76, y, { align: "right", max: 12.8 });
   text(money(item.taxableAmount), cols[7] - 0.62, y, { align: "right", max: 21 });
   groups.forEach((g) => {
     text(`${plain(item[g.rate])}%`, (g.x1 + g.mid) / 2, y, { align: "center", max: g.mid - g.x1 - 0.8 });
     text(plain(item[g.amount]), (g.mid + g.x2) / 2, y, { align: "center", max: g.x2 - g.mid - 0.8 });
   });
-  const lineTotal = item.taxableAmount + groups.reduce((s, g) => s + (item[g.amount] || 0), 0);
+  const lineTotal =
+    item.taxableAmount + groups.reduce((s, g) => s + (item[g.amount] || 0), 0) + (item.cessAmount || 0);
   text(money(lineTotal), 201.1, y, { bold: true, align: "right", max: 21.4 });
 
   h(top + row.height);
@@ -344,7 +360,8 @@ function drawTotalRow(pen, { invoice, cols, groups }) {
 function drawSummary(pen, { invoice, groups }) {
   const { text, h, v } = pen;
   const itemsTotal = sum(invoice.items, (i) => i.totalAmount);
-  const gst = sum(invoice.items, (i) => i.totalAmount - i.taxableAmount);
+  const cess = sum(invoice.items, (i) => i.cessAmount);
+  const gst = sum(invoice.items, (i) => i.totalAmount - i.taxableAmount - (i.cessAmount || 0));
   const discount = round2(invoice.discountAmount);
   const roundOff = round2(invoice.grandTotal - (itemsTotal - discount));
 
@@ -353,7 +370,10 @@ function drawSummary(pen, { invoice, groups }) {
       ["Total Amount Before Tax", rupee(invoice.subTotal), true],
       ...(discount > 0 ? [["Less : Discount", rupee(discount), false]] : []),
     ],
-    groups.map((g) => [`Add : ${g.title}`, rupee(sum(invoice.items, (i) => i[g.amount])), false]),
+    [
+      ...groups.map((g) => [`Add : ${g.title}`, rupee(sum(invoice.items, (i) => i[g.amount])), false]),
+      ...(cess > 0 ? [["Add : CESS", rupee(cess), false]] : []),
+    ],
     [
       ["Tax Amount : GST", rupee(gst), false],
       ["Round Off Value:", plain(roundOff), true],
@@ -413,7 +433,19 @@ function drawFooter(doc, pen, { invoice, seller, bank, signature, cols, groups }
   const terms = (invoice.terms || defaultTerms(seller.city))
     .split("\n")
     .flatMap((line) => wrap(line, 112, 7.49));
-  terms.slice(0, 12).forEach((line, i) => text(line, 9.62, 225.68 + i * WRAP_STEP, { size: 7.49 }));
+  const numbers = [
+    ...(invoice.ewayBillNumber
+      ? [`E-Way Bill No. : ${invoice.ewayBillNumber}${invoice.ewayBillDate ? `  (${formatBillDate(invoice.ewayBillDate)})` : ""}`]
+      : []),
+    ...(invoice.irn ? [`IRN : ${invoice.irn}`] : []),
+    ...(invoice.ackNumber
+      ? [`Ack No. : ${invoice.ackNumber}${invoice.ackDate ? `  (${formatBillDate(invoice.ackDate)})` : ""}`]
+      : []),
+  ];
+  terms.slice(0, 12 - numbers.length).forEach((line, i) => text(line, 9.62, 225.68 + i * WRAP_STEP, { size: 7.49 }));
+  numbers.forEach((line, i) =>
+    text(line, 9.62, 258.9 - (numbers.length - 1 - i) * WRAP_STEP, { size: 6.34, max: 112 }),
+  );
 
   // Signature block
   const right = (124.16 + RIGHT) / 2;
@@ -475,9 +507,25 @@ export function resolveParties(invoice, supplier = {}) {
     stateCode: b.stateCode || "",
   };
 
+  const c = invoice.consignee || {};
+  const consignee =
+    invoice.consigneeMode === "none"
+      ? { name: "", address: "", gstin: "", state: "", stateCode: "" }
+      : invoice.consigneeMode === "other"
+        ? {
+            name: c.name || "",
+            address: [c.address, c.city, c.state, c.pincode].filter(Boolean).join(", "),
+            gstin: c.gstin || "Unregistered",
+            state: c.state || "",
+            stateCode: c.stateCode || "",
+          }
+        : buyer;
+
   const o = invoice.bankDetailsOverride || {};
   const custom = [o.bankName, o.bankAccount, o.bankIfsc, o.bankBranch, o.bankHolderName].some(Boolean);
-  const bank = custom
+  const bank = invoice.showBankDetails === false
+    ? { holder: "", account: "", ifsc: "", name: "", branch: "" }
+    : custom
     ? { holder: o.bankHolderName, account: o.bankAccount, ifsc: o.bankIfsc, name: o.bankName, branch: o.bankBranch }
     : {
         holder: seller.name,
@@ -487,12 +535,12 @@ export function resolveParties(invoice, supplier = {}) {
         branch: supplier.bankBranch,
       };
 
-  return { seller, buyer, bank };
+  return { seller, buyer, consignee, bank };
 }
 
 export function renderInvoice(doc, { invoice, supplier, logo, signature, title: heading, meta }) {
   const pen = createPen(doc);
-  const { seller, buyer, bank } = resolveParties(invoice, supplier);
+  const { seller, buyer, consignee, bank } = resolveParties(invoice, supplier);
   const groups = taxGroups(invoice);
   const cols = baseColumns(invoice);
   const title = heading || (invoice.invoiceType === "bill_of_supply" ? "BILL OF SUPPLY" : "TAX INVOICE");
@@ -501,8 +549,15 @@ export function renderInvoice(doc, { invoice, supplier, logo, signature, title: 
   );
 
   const rows = invoice.items.map((item, index) => {
-    const nameLines = pen.wrap(item.name, cols[2] - cols[1] - 1.5);
-    return { item, index, nameLines, height: ROW_HEIGHT + (nameLines.length - 1) * WRAP_STEP };
+    const width = cols[2] - cols[1] - 1.5;
+    const nameLines = pen.wrap(item.name, width);
+    const extras = [
+      ...(item.description ? pen.wrap(item.description, width, 6.34).slice(0, 2) : []),
+      ...(item.discountAmount > 0 ? [`Less discount ${rupee(item.discountAmount)}`] : []),
+      ...(item.cessAmount > 0 ? [`CESS ${rupee(item.cessAmount)}`] : []),
+    ];
+    const height = ROW_HEIGHT + (nameLines.length + extras.length - 1) * WRAP_STEP;
+    return { item, index, nameLines, extras, rate: unitRate(item, invoice), height };
   });
   const pages = paginate(rows);
 
@@ -519,7 +574,7 @@ export function renderInvoice(doc, { invoice, supplier, logo, signature, title: 
 
       drawHeader(doc, pen, { seller, logo, title, copy });
       drawMeta(pen, { invoice, seller, meta: meta?.(invoice, seller) });
-      drawParties(pen, buyer);
+      drawParties(pen, buyer, consignee);
       drawTableHead(pen, cols, groups);
 
       let top = ITEMS_TOP;

@@ -8,6 +8,7 @@ const Purchase = require("../models/Purchase");
 const CreditNote = require("../models/CreditNote");
 const StockAdjustment = require("../models/StockAdjustment");
 const { round2, istDate, normaliseName } = require("./common");
+const { costOf } = require("./cost");
 
 const round3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -64,7 +65,7 @@ async function computeStock(userId) {
     const list = moves.get(String(item._id));
     const total = (type) => round3(list.filter((m) => m.type === type).reduce((s, m) => s + m.quantity, 0));
     const stock = round3((item.openingStock || 0) + list.reduce((s, m) => s + m.quantity, 0));
-    const cost = item.purchasePrice || 0;
+    const cost = round2(costOf(item));
     return {
       id: String(item._id),
       name: item.name,
